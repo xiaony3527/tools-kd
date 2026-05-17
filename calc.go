@@ -49,6 +49,9 @@ func CalcVolume(l, w, h float64) float64 {
 
 // AddPackage 添加包裹
 func (c *Calc) AddPackage(l, w, h, vol float64, qty int, isDirect bool) []Package {
+	if !isDirect {
+		vol = CalcVolume(l, w, h)
+	}
 	p := Package{
 		ID:          c.nextID,
 		Length:      l,
