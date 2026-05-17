@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -44,8 +45,9 @@ func (m *PackageTableModel) Value(row, col int) interface{} {
 			return fmt.Sprintf("%.1f", p.ActualWeight)
 		}
 		return "—"
-	case 3: // 体积
-		return fmt.Sprintf("%.0f", p.Volume)
+	case 3: // 体积(m³)
+		return fmt.Sprintf("%.3f", p.Volume/1000000)
+
 	case 4: // 申抛重 (×件数)
 		v := StoVolWeight(p.Volume) * p.Quantity
 		return fmt.Sprintf("%d", v)
@@ -95,6 +97,11 @@ var (
 	cmbProvince *walk.ComboBox
 	cmbCity     *walk.ComboBox
 	lblBsCost   *walk.Label
+
+	inpAddress  *walk.LineEdit
+	btnAnalyze  *walk.PushButton
+	lblDest     *walk.Label
+	lblCostDetail *walk.Label
 
 	titleBar   *walk.Composite
 	summaryBar *walk.Composite
@@ -178,11 +185,11 @@ func buildUI() error {
 									{Title: "#", Width: 28, Alignment: AlignCenter},
 									{Title: "尺寸(cm)", Width: 110},
 									{Title: "实重kg", Width: 52, Alignment: AlignFar},
-									{Title: "体积cm³", Width: 68, Alignment: AlignFar},
-									{Title: "申抛重", Width: 52, Alignment: AlignFar},
-									{Title: "百抛重", Width: 52, Alignment: AlignFar},
-									{Title: "申计费", Width: 55, Alignment: AlignFar},
-									{Title: "百计费", Width: 55, Alignment: AlignFar},
+									{Title: "体积m³", Width: 72, Alignment: AlignFar},
+									{Title: "申抛重", Width: 50, Alignment: AlignFar},
+									{Title: "百抛重", Width: 50, Alignment: AlignFar},
+									{Title: "申计费", Width: 58, Alignment: AlignFar},
+									{Title: "百计费", Width: 58, Alignment: AlignFar},
 								},
 							},
 							// Summary bar
@@ -208,7 +215,6 @@ func buildUI() error {
 										Children: []Widget{
 											Label{Text: "百世快运", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
 											Label{AssignTo: &lblBs, Text: "0 kg", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 18, Bold: true}},
-											Label{AssignTo: &lblBsCost, Text: "", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 10}},
 											Label{Text: "系数 5000", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 7}},
 										},
 									},
@@ -226,9 +232,25 @@ func buildUI() error {
 					Composite{
 						Layout: VBox{Margins: Margins{6, 10, 10, 10}, Spacing: 8},
 						Children: []Widget{
-							// Destination
+							// AI Address analysis
 							GroupBox{
-								Title:  "📍 目的地",
+								Title:  "📍 收件地址 (粘贴后点击AI解析)",
+								Layout: VBox{Margins: Margins{8, 6, 8, 6}, Spacing: 4},
+								Children: []Widget{
+									LineEdit{
+										AssignTo: &inpAddress,
+										CueBanner: "粘贴完整地址，如：浙江省杭州市余杭区仓前街道",
+									},
+									PushButton{
+										AssignTo:  &btnAnalyze,
+										Text:      "🤖 AI 解析地址",
+										OnClicked: onAnalyzeAddress,
+									},
+								},
+							},
+							// Manual destination selection
+							GroupBox{
+								Title:  "📍 目的地 (手动选择)",
 								Layout: VBox{Margins: Margins{8, 6, 8, 6}, Spacing: 4},
 								Children: []Widget{
 									ComboBox{
@@ -241,6 +263,16 @@ func buildUI() error {
 										AssignTo: &cmbCity,
 										Model:    []string{},
 									},
+								},
+							},
+							// Shipping cost display
+							GroupBox{
+								Title:  "💰 百世运费",
+								Layout: VBox{Margins: Margins{8, 6, 8, 6}, Spacing: 2},
+								Children: []Widget{
+									Label{AssignTo: &lblDest, Text: "目的地: —", Font: Font{PointSize: 10, Bold: true}},
+									Label{AssignTo: &lblBsCost, Text: "运费: —", Font: Font{PointSize: 12, Bold: true}},
+									Label{AssignTo: &lblCostDetail, Text: "", Font: Font{PointSize: 9}},
 								},
 							},
 							// Package input
@@ -320,7 +352,7 @@ func setupEvents() {
 	// Focus select-all
 	for _, inp := range []*walk.LineEdit{
 		inpLength, inpWidth, inpHeight, inpDimQty, inpDimActual,
-		inpVolume, inpVolQty, inpVolActual,
+		inpVolume, inpVolQty, inpVolActual, inpAddress,
 	} {
 		setupSelectAll(inp)
 	}
@@ -435,7 +467,7 @@ func updateAll() {
 func updatePreview() {
 	l, w, h, vol, actual, _, isDirect, valid := getInputData()
 	if !valid {
-		lblPreview.SetText("体积 — cm³ ｜ 实重 — kg ｜ 抛重 申—/百— ｜ 计费 申—/百— kg")
+		lblPreview.SetText("体积 — m³ ｜ 实重 — kg ｜ 抛重 申—/百— ｜ 计费 申—/百— kg")
 		return
 	}
 
@@ -452,8 +484,8 @@ func updatePreview() {
 	bsBill := BsBillable(volume, actual)
 
 	lblPreview.SetText(fmt.Sprintf(
-		"体积 %.0f cm³ ｜ 实重 %.1f kg ｜ 抛重 申%d/百%d kg ｜ 计费 申%d/百%d kg",
-		volume, actual, stoVol, bsVol, stoBill, bsBill,
+		"体积 %.3f m³ ｜ 实重 %.1f kg ｜ 抛重 申%d/百%d kg ｜ 计费 申%d/百%d kg",
+		volume/1000000, actual, stoVol, bsVol, stoBill, bsBill,
 	))
 }
 
@@ -540,20 +572,81 @@ func updateShippingCost() {
 	pi := cmbProvince.CurrentIndex()
 	ci := cmbCity.CurrentIndex()
 	if pi < 0 || ci < 0 || pi >= len(provinces) {
-		lblBsCost.SetText("")
+		lblBsCost.SetText("运费: —")
+		lblDest.SetText("目的地: —")
+		lblCostDetail.SetText("")
 		return
 	}
 	province := provinces[pi]
-	city := cmbCity.Model().([]string)[ci]
+	cities := cmbCity.Model().([]string)
+	if ci >= len(cities) {
+		return
+	}
+	city := cities[ci]
 
 	p := GetPriceDefault(province, city)
+	lblDest.SetText(fmt.Sprintf("目的地: %s %s", province, city))
+
 	totalWeight := float64(calcInst.TotalBs())
 	if totalWeight <= 0 {
-		lblBsCost.SetText(fmt.Sprintf("¥%.2f (0kg)", p.Base50))
+		lblBsCost.SetText(fmt.Sprintf("运费: ¥%.2f (0kg基础)", p.Base50))
+		lblCostDetail.SetText("")
 		return
 	}
 	cost := CalcBsCost(totalWeight, p)
-	lblBsCost.SetText(fmt.Sprintf("¥%.2f", cost))
+	lblBsCost.SetText(fmt.Sprintf("运费: ¥%.2f", cost))
+	if totalWeight > 0 {
+		lblCostDetail.SetText(fmt.Sprintf("计费重 %.0f kg ｜ 单价 ≈ ¥%.2f/kg", totalWeight, cost/totalWeight))
+	}
+}
+
+func onAnalyzeAddress() {
+	addr := inpAddress.Text()
+	if strings.TrimSpace(addr) == "" {
+		walk.MsgBox(mw, "提示", "请先粘贴收件地址", walk.MsgBoxIconInformation)
+		return
+	}
+
+	btnAnalyze.SetEnabled(false)
+	btnAnalyze.SetText("解析中...")
+
+	province, city, err := AnalyzeAddress(addr)
+
+	btnAnalyze.SetText("🤖 AI 解析地址")
+	btnAnalyze.SetEnabled(true)
+
+	if err != nil {
+		lblDest.SetText(fmt.Sprintf("解析失败: %v", err))
+		return
+	}
+
+	if province == "" && city == "" {
+		lblDest.SetText("未能识别省份/城市，请手动选择")
+		return
+	}
+
+	// Auto-select province in dropdown
+	for i, p := range provinces {
+		if strings.Contains(p, province) || strings.Contains(province, p) {
+			cmbProvince.SetCurrentIndex(i)
+			onProvinceChanged()
+
+			// Auto-select city
+			if city != "" {
+				cities := cmbCity.Model().([]string)
+				for j, c := range cities {
+					if strings.Contains(c, city) || strings.Contains(city, c) {
+						cmbCity.SetCurrentIndex(j)
+						break
+					}
+				}
+			}
+			updateShippingCost()
+			return
+		}
+	}
+
+	lblDest.SetText(fmt.Sprintf("识别: %s %s (未匹配到下拉选项)", province, city))
 }
 
 func onToggleMode(link *walk.LinkLabelLink) {
