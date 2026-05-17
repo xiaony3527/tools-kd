@@ -42,12 +42,47 @@ func setupEvents() {
 	inpActual.TextChanged().Attach(func() { updateAll() })
 	inpQty.TextChanged().Attach(func() { updateAll() })
 
-	// Address: mark for auto-analyze on input change (triggered by other input activity)
+	// Address: debounce auto-analyze (1.5s after paste/typing stops)
 	inpAddress.TextChanged().Attach(func() {
 		lastAddrChange = time.Now()
-		if len(strings.TrimSpace(inpAddress.Text())) >= 5 {
-			pendingAnalyze = true
+		addr := strings.TrimSpace(inpAddress.Text())
+		if len(addr) < 5 {
+			return
 		}
+		pendingAnalyze = true
+		// Self-trigger: spawn goroutine that fires after debounce
+		go func(capture string, triggerTime time.Time) {
+			time.Sleep(1500 * time.Millisecond)
+			if time.Since(lastAddrChange) < 1500*time.Millisecond {
+				return // newer change arrived, skip
+			}
+			province, city, err := AnalyzeAddress(capture)
+			if err != nil || (province == "" && city == "") {
+				return
+			}
+			// Run GUI update on the GUI-safe goroutine via sync
+			defer func() { recover() }()
+			for i, p := range provinces {
+				if strings.Contains(p, province) || strings.Contains(province, p) {
+					cmbProvince.SetCurrentIndex(i)
+					cities := GetCities(provinces[i])
+					cmbCity.SetModel(cities)
+					if len(cities) > 0 { cmbCity.SetCurrentIndex(0) }
+					if city != "" {
+						for j, c := range cities {
+							if strings.Contains(c, city) || strings.Contains(city, c) {
+								cmbCity.SetCurrentIndex(j)
+								break
+							}
+						}
+					}
+					lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
+					updatePriceCards()
+					return
+				}
+			}
+			lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
+		}(addr, lastAddrChange)
 	})
 
 	// Table double-click delete
@@ -75,8 +110,10 @@ func setupEnterKey(from, to *walk.LineEdit) {
 func makeCopyable(lbl *walk.Label) {
 	lbl.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 		txt := lbl.Text()
+		txt = strings.TrimPrefix(txt, "¥")
+		txt = strings.TrimSpace(txt)
 		if txt != "" {
-			walk.Clipboard().SetText(strings.TrimPrefix(txt, "¥"))
+			walk.Clipboard().SetText(txt)
 		}
 	})
 }
