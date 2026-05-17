@@ -1,4 +1,4 @@
-APP_NAME := 快递体积重计算器
+APP_NAME := 快递运费报价
 RSRC := $(shell go env GOPATH)/bin/rsrc
 
 .PHONY: build clean
