@@ -92,6 +92,10 @@ var (
 	volGroup   *walk.Composite
 	lnkToggle  *walk.LinkLabel
 
+	cmbProvince *walk.ComboBox
+	cmbCity     *walk.ComboBox
+	lblBsCost   *walk.Label
+
 	titleBar   *walk.Composite
 	summaryBar *walk.Composite
 )
@@ -108,6 +112,10 @@ func main() {
 	applyStyling()
 	setupEvents()
 	mw.SetVisible(true)
+
+	// Initialize city list for default province
+	onProvinceChanged()
+
 	updateAll()
 
 	mw.Run()
@@ -198,8 +206,9 @@ func buildUI() error {
 									Composite{
 										Layout: VBox{MarginsZero: true, SpacingZero: true},
 										Children: []Widget{
-											Label{Text: "百世快运 · 计费重", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
+											Label{Text: "百世快运", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
 											Label{AssignTo: &lblBs, Text: "0 kg", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 18, Bold: true}},
+											Label{AssignTo: &lblBsCost, Text: "", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 10}},
 											Label{Text: "系数 5000", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 7}},
 										},
 									},
@@ -217,12 +226,21 @@ func buildUI() error {
 					Composite{
 						Layout: VBox{Margins: Margins{6, 10, 10, 10}, Spacing: 8},
 						Children: []Widget{
-							// Address
+							// Destination
 							GroupBox{
-								Title:  "📍 收件地址",
-								Layout: HBox{MarginsZero: true},
+								Title:  "📍 目的地",
+								Layout: VBox{Margins: Margins{8, 6, 8, 6}, Spacing: 4},
 								Children: []Widget{
-									LineEdit{CueBanner: "省份 城市 区县"},
+									ComboBox{
+										AssignTo:              &cmbProvince,
+										Model:                 provinces,
+										CurrentIndex:          0,
+										OnCurrentIndexChanged: onProvinceChanged,
+									},
+									ComboBox{
+										AssignTo: &cmbCity,
+										Model:    []string{},
+									},
 								},
 							},
 							// Package input
@@ -342,6 +360,9 @@ func setupEvents() {
 	mw.Closing().Attach(func(cancel *bool, reason walk.CloseReason) {
 		walk.App().Exit(0)
 	})
+
+	// City selection change
+	cmbCity.CurrentIndexChanged().Attach(func() { updateShippingCost() })
 }
 
 func setupSelectAll(inp *walk.LineEdit) {
@@ -447,6 +468,7 @@ func updatePackageList() {
 	lblSto.SetText(fmt.Sprintf("%d kg", calcInst.TotalSto()))
 	lblBs.SetText(fmt.Sprintf("%d kg", calcInst.TotalBs()))
 	btnClear.SetEnabled(calcInst.Count() > 0)
+	updateShippingCost()
 }
 
 // ====== Actions ======
@@ -495,6 +517,43 @@ func onClearAll() {
 	calcInst.ClearPackages()
 	updatePackageList()
 	updateAll()
+}
+
+func onProvinceChanged() {
+	idx := cmbProvince.CurrentIndex()
+	if idx < 0 || idx >= len(provinces) {
+		return
+	}
+	cities := GetCities(provinces[idx])
+	cmbCity.SetModel(cities)
+	if len(cities) > 0 {
+		cmbCity.SetCurrentIndex(0)
+	}
+	updateShippingCost()
+}
+
+func onCityChanged() {
+	updateShippingCost()
+}
+
+func updateShippingCost() {
+	pi := cmbProvince.CurrentIndex()
+	ci := cmbCity.CurrentIndex()
+	if pi < 0 || ci < 0 || pi >= len(provinces) {
+		lblBsCost.SetText("")
+		return
+	}
+	province := provinces[pi]
+	city := cmbCity.Model().([]string)[ci]
+
+	p := GetPriceDefault(province, city)
+	totalWeight := float64(calcInst.TotalBs())
+	if totalWeight <= 0 {
+		lblBsCost.SetText(fmt.Sprintf("¥%.2f (0kg)", p.Base50))
+		return
+	}
+	cost := CalcBsCost(totalWeight, p)
+	lblBsCost.SetText(fmt.Sprintf("¥%.2f", cost))
 }
 
 func onToggleMode(link *walk.LinkLabelLink) {
