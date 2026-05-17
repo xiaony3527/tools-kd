@@ -74,19 +74,12 @@ var (
 	lblDest    *walk.Label
 
 	// --- Zone 2: Package ---
-	rbDim      *walk.RadioButton
-	rbWeight   *walk.RadioButton
-	rbVolume   *walk.RadioButton
 	inpLength  *walk.LineEdit
 	inpWidth   *walk.LineEdit
 	inpHeight  *walk.LineEdit
 	inpQty     *walk.LineEdit
 	inpActual  *walk.LineEdit
 	inpVolume  *walk.LineEdit
-	inpVolQty  *walk.LineEdit
-	dimInputs  *walk.Composite
-	volInputs  *walk.Composite
-	wtInputs   *walk.Composite
 	lblPreview *walk.Label
 	tblPackages *walk.TableView
 	btnClear   *walk.PushButton

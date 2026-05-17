@@ -4,37 +4,51 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/lxn/walk"
 )
 
-var inputMode InputMode = ModeDimWeight
+var (
+	lastAddrChange time.Time
+	pendingAnalyze bool
+)
 
 func setupEvents() {
 	// Focus select-all
-	for _, inp := range []*walk.LineEdit{inpLength, inpWidth, inpHeight, inpQty, inpActual, inpVolume, inpVolQty, inpAddress} {
-		inp := inp // capture loop variable
+	for _, inp := range []*walk.LineEdit{inpLength, inpWidth, inpHeight, inpVolume, inpActual, inpQty, inpAddress} {
+		inp := inp
 		inp.FocusedChanged().Attach(func() {
 			txt := inp.Text()
-			if len(txt) > 0 { inp.SetTextSelection(0, len(txt)) }
+			if len(txt) > 0 {
+				inp.SetTextSelection(0, len(txt))
+			}
 		})
 	}
 
-	// Enter key navigation for dim+weight mode
+	// Enter key nav: 长→宽→高→体积→实重→件数→添加
 	setupEnterKey(inpLength, inpWidth)
 	setupEnterKey(inpWidth, inpHeight)
-	setupEnterKey(inpHeight, inpQty)
-	setupEnterKey(inpQty, inpActual)
-	inpActual.KeyDown().Attach(func(key walk.Key) { if key == walk.KeyReturn { onAddPackage() } })
+	setupEnterKey(inpHeight, inpVolume)
+	setupEnterKey(inpVolume, inpActual)
+	setupEnterKey(inpActual, inpQty)
+	inpQty.KeyDown().Attach(func(key walk.Key) { if key == walk.KeyReturn { onAddPackage() } })
 
-	// Input changes
+	// Input changes → update preview
 	inpLength.TextChanged().Attach(func() { updateAll() })
 	inpWidth.TextChanged().Attach(func() { updateAll() })
 	inpHeight.TextChanged().Attach(func() { updateAll() })
-	inpQty.TextChanged().Attach(func() { updateAll() })
-	inpActual.TextChanged().Attach(func() { updateAll() })
 	inpVolume.TextChanged().Attach(func() { updateAll() })
-	inpVolQty.TextChanged().Attach(func() { updateAll() })
+	inpActual.TextChanged().Attach(func() { updateAll() })
+	inpQty.TextChanged().Attach(func() { updateAll() })
+
+	// Address: mark for auto-analyze on input change (triggered by other input activity)
+	inpAddress.TextChanged().Attach(func() {
+		lastAddrChange = time.Now()
+		if len(strings.TrimSpace(inpAddress.Text())) >= 5 {
+			pendingAnalyze = true
+		}
+	})
 
 	// Table double-click delete
 	tblPackages.ItemActivated().Attach(onDeleteSelected)
@@ -45,7 +59,9 @@ func setupEvents() {
 	// Close
 	mw.Closing().Attach(func(cancel *bool, reason walk.CloseReason) { walk.App().Exit(0) })
 
-	rbDim.SetChecked(true)
+	// Click-to-copy price labels
+	makeCopyable(lblStoCost)
+	makeCopyable(lblBsCost)
 }
 
 func setupEnterKey(from, to *walk.LineEdit) {
@@ -56,71 +72,89 @@ func setupEnterKey(from, to *walk.LineEdit) {
 	})
 }
 
-func switchMode(m int) {
-	inputMode = InputMode(m)
-	dimInputs.SetVisible(inputMode == ModeDimWeight)
-	wtInputs.SetVisible(inputMode == ModeWeightOnly)
-	volInputs.SetVisible(inputMode == ModeVolumeOnly)
-	updateAll()
+func makeCopyable(lbl *walk.Label) {
+	lbl.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
+		txt := lbl.Text()
+		if txt != "" {
+			walk.Clipboard().SetText(strings.TrimPrefix(txt, "¥"))
+		}
+	})
 }
 
-// ====== Input parsing ======
+// ====== Input parsing — auto-detect mode ======
 func parseFloat(s string) float64 { var f float64; fmt.Sscanf(s, "%f", &f); return f }
 func parseInt(s string) int       { var n int; fmt.Sscanf(s, "%d", &n); return n }
 
-func getInputData() (l, w, h, vol, actual float64, qty int, valid bool) {
-	switch inputMode {
-	case ModeWeightOnly:
-		actual = parseFloat(inpActual.Text())
-		if actual <= 0 {
-			return
-		}
-		qty = parseInt(inpQty.Text())
-	case ModeVolumeOnly:
-		vol = parseFloat(inpVolume.Text())
-		if vol <= 0 {
-			return
-		}
-		qty = parseInt(inpVolQty.Text())
-	default: // ModeDimWeight
-		l = parseFloat(inpLength.Text())
-		w = parseFloat(inpWidth.Text())
-		h = parseFloat(inpHeight.Text())
-		if l <= 0 || w <= 0 || h <= 0 {
-			return
-		}
-		qty = parseInt(inpQty.Text())
-		actual = parseFloat(inpActual.Text())
-		vol = l * w * h
-	}
+func getInputData() (l, w, h, vol, actual float64, qty int, mode InputMode, valid bool) {
+	l = parseFloat(inpLength.Text())
+	w = parseFloat(inpWidth.Text())
+	h = parseFloat(inpHeight.Text())
+	actual = parseFloat(inpActual.Text())
+	vol = parseFloat(inpVolume.Text())
+	qty = parseInt(inpQty.Text())
 	if qty < 1 {
 		qty = 1
 	}
-	valid = true
+
+	hasDim := l > 0 && w > 0 && h > 0
+	hasVol := vol > 0
+	hasActual := actual > 0
+
+	switch {
+	case hasVol && !hasDim:
+		mode = ModeVolumeOnly
+		valid = true
+	case hasActual && !hasDim && !hasVol:
+		mode = ModeWeightOnly
+		valid = true
+	case hasDim:
+		mode = ModeDimWeight
+		vol = l * w * h
+		valid = true
+	default:
+		valid = false
+	}
 	return
 }
 
 // ====== Update ======
 func updateAll() {
 	updatePreview()
+	if pendingAnalyze && time.Since(lastAddrChange) > 1500*time.Millisecond {
+		pendingAnalyze = false
+		onAnalyzeAddressSilent()
+	}
 }
 
 func updatePreview() {
-	_, _, _, vol, actual, _, valid := getInputData()
+	l, w, h, vol, actual, qty, mode, valid := getInputData()
 	if !valid {
-		lblPreview.SetText("预览: —")
+		lblPreview.SetText("预览: 输入长宽高/体积/实重任一组合")
 		return
 	}
+	_ = l; _ = w; _ = h
 	var bill float64
-	switch inputMode {
+	switch mode {
 	case ModeWeightOnly:
-		bill = actual
+		bill = actual * float64(qty)
 	case ModeVolumeOnly:
-		bill = math.Ceil(vol / BsCoefficient)
+		bill = math.Ceil(vol/BsCoefficient) * float64(qty)
 	default:
-		bill = math.Max(actual, math.Ceil(vol/BsCoefficient))
+		vw := math.Ceil(vol / BsCoefficient)
+		bill = math.Max(actual, vw) * float64(qty)
 	}
-	lblPreview.SetText(fmt.Sprintf("预览: 计费重 %.0f kg", bill))
+	lblPreview.SetText(fmt.Sprintf("预览: 模式=%s 计费重 %.0f kg", modeName(mode), bill))
+}
+
+func modeName(m InputMode) string {
+	switch m {
+	case ModeWeightOnly:
+		return "仅实重"
+	case ModeVolumeOnly:
+		return "仅体积"
+	default:
+		return "长宽高+实重"
+	}
 }
 
 func updatePackageList() {
@@ -200,20 +234,19 @@ func updatePriceCards() {
 
 // ====== Actions ======
 func onAddPackage() {
-	l, w, h, vol, actual, qty, valid := getInputData()
+	l, w, h, vol, actual, qty, mode, valid := getInputData()
 	if !valid {
 		return
 	}
-	calcInst.AddPackage(l, w, h, vol, actual, qty, inputMode)
+	calcInst.AddPackage(l, w, h, vol, actual, qty, mode)
 	updatePackageList()
 	// Clear
 	inpLength.SetText("")
 	inpWidth.SetText("")
 	inpHeight.SetText("")
-	inpQty.SetText("1")
-	inpActual.SetText("")
 	inpVolume.SetText("")
-	inpVolQty.SetText("1")
+	inpActual.SetText("")
+	inpQty.SetText("1")
 	updateAll()
 }
 
@@ -250,23 +283,16 @@ func onProvinceChanged() {
 	updatePriceCards()
 }
 
-func onAnalyzeAddress() {
+func onAnalyzeAddressSilent() {
 	addr := inpAddress.Text()
 	if strings.TrimSpace(addr) == "" {
-		walk.MsgBox(mw, "提示", "请先粘贴收件地址", walk.MsgBoxIconInformation)
 		return
 	}
-	btnAnalyze.SetEnabled(false)
-	btnAnalyze.SetText("解析中...")
 	province, city, err := AnalyzeAddress(addr)
-	btnAnalyze.SetText("🤖 AI 解析")
-	btnAnalyze.SetEnabled(true)
 	if err != nil {
-		lblDest.SetText(fmt.Sprintf("解析失败: %v", err))
 		return
 	}
 	if province == "" && city == "" {
-		lblDest.SetText("未能识别，请手动选择")
 		return
 	}
 	for i, p := range provinces {
@@ -287,5 +313,13 @@ func onAnalyzeAddress() {
 			return
 		}
 	}
-	lblDest.SetText(fmt.Sprintf("▸ %s %s (未匹配)", province, city))
+	lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
+}
+
+func onAnalyzeAddress() {
+	btnAnalyze.SetEnabled(false)
+	btnAnalyze.SetText("解析中...")
+	onAnalyzeAddressSilent()
+	btnAnalyze.SetText("🤖 AI 解析")
+	btnAnalyze.SetEnabled(true)
 }

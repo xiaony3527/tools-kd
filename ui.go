@@ -50,45 +50,16 @@ func buildUI() error {
 			Composite{
 				Layout: VBox{Margins: Margins{10, 6, 10, 6}, Spacing: 4},
 				Children: []Widget{
-					// Mode radio buttons
+					// All inputs visible — mode auto-detected
 					Composite{
-						Layout: HBox{MarginsZero: true, Spacing: 12},
+						Layout: HBox{MarginsZero: true, Spacing: 4},
 						Children: []Widget{
-							RadioButton{AssignTo: &rbDim, Text: "长宽高+实重", OnClicked: func() { switchMode(0) }},
-							RadioButton{AssignTo: &rbWeight, Text: "仅实重", OnClicked: func() { switchMode(1) }},
-							RadioButton{AssignTo: &rbVolume, Text: "仅体积", OnClicked: func() { switchMode(2) }},
-						},
-					},
-					// Dim+Weight inputs (default visible)
-					Composite{
-						AssignTo: &dimInputs,
-						Layout:   HBox{MarginsZero: true, Spacing: 4},
-						Children: []Widget{
-							Label{Text: "长(cm)"}, LineEdit{AssignTo: &inpLength},
-							Label{Text: "宽(cm)"}, LineEdit{AssignTo: &inpWidth},
-							Label{Text: "高(cm)"}, LineEdit{AssignTo: &inpHeight},
+							Label{Text: "长(cm)"}, LineEdit{AssignTo: &inpLength, CueBanner: "长"},
+							Label{Text: "宽(cm)"}, LineEdit{AssignTo: &inpWidth, CueBanner: "宽"},
+							Label{Text: "高(cm)"}, LineEdit{AssignTo: &inpHeight, CueBanner: "高"},
+							Label{Text: "体积(cm³)"}, LineEdit{AssignTo: &inpVolume, CueBanner: "或体积"},
+							Label{Text: "实重(kg)"}, LineEdit{AssignTo: &inpActual, CueBanner: "实重"},
 							Label{Text: "件数"}, LineEdit{AssignTo: &inpQty, Text: "1"},
-							Label{Text: "实重(kg)"}, LineEdit{AssignTo: &inpActual},
-							PushButton{Text: "+ 添加", OnClicked: onAddPackage},
-						},
-					},
-					// Weight-only inputs (default hidden)
-					Composite{
-						AssignTo: &wtInputs, Visible: false,
-						Layout:   HBox{MarginsZero: true, Spacing: 4},
-						Children: []Widget{
-							Label{Text: "实重(kg)"}, LineEdit{AssignTo: &inpActual},
-							Label{Text: "件数"}, LineEdit{AssignTo: &inpQty, Text: "1"},
-							PushButton{Text: "+ 添加", OnClicked: onAddPackage},
-						},
-					},
-					// Volume-only inputs (default hidden)
-					Composite{
-						AssignTo: &volInputs, Visible: false,
-						Layout:   HBox{MarginsZero: true, Spacing: 4},
-						Children: []Widget{
-							Label{Text: "体积(cm³)"}, LineEdit{AssignTo: &inpVolume},
-							Label{Text: "件数"}, LineEdit{AssignTo: &inpVolQty, Text: "1"},
 							PushButton{Text: "+ 添加", OnClicked: onAddPackage},
 						},
 					},
@@ -123,7 +94,7 @@ func buildUI() error {
 						Title:  "🚚 申通快递",
 						Layout: VBox{Margins: Margins{12, 8, 12, 8}, Spacing: 4},
 						Children: []Widget{
-							Label{AssignTo: &lblStoCost, Text: "¥—", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(102, 126, 234)},
+							Label{AssignTo: &lblStoCost, Text: "¥— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(102, 126, 234)},
 							Label{AssignTo: &lblStoDetail, Text: "计费重 — kg", Font: Font{PointSize: 9}},
 							Label{AssignTo: &lblStoRecommend, Text: "", Font: Font{PointSize: 10, Bold: true}, TextColor: walk.RGB(46, 139, 87)},
 							Label{AssignTo: &lblStoNote, Text: "", Font: Font{PointSize: 9}, TextColor: walk.RGB(230, 126, 34)},
@@ -135,7 +106,7 @@ func buildUI() error {
 						Title:  "📦 百世快运",
 						Layout: VBox{Margins: Margins{12, 8, 12, 8}, Spacing: 4},
 						Children: []Widget{
-							Label{AssignTo: &lblBsCost, Text: "¥—", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(118, 75, 162)},
+							Label{AssignTo: &lblBsCost, Text: "¥— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(118, 75, 162)},
 							Label{AssignTo: &lblBsDetail, Text: "计费重 — kg", Font: Font{PointSize: 9}},
 							Label{AssignTo: &lblRecommend, Text: "", Font: Font{PointSize: 10, Bold: true}, TextColor: walk.RGB(46, 139, 87)},
 						},
