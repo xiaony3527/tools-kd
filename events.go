@@ -184,15 +184,17 @@ func updatePriceCards() {
 	}
 
 	// --- Recommend ---
+	lblStoRecommend.SetText("")
+	lblRecommend.SetText("")
 	costSto, _ := CalcStoCost(totalSto, fk, ak)
 	if totalBs > 0 && totalSto > 50 {
 		lblRecommend.SetText("✅ 推荐 (仅百世)")
-	} else if totalBs > 0 && totalSto > 0 && costBs < costSto {
-		lblRecommend.SetText("✅ 推荐")
-	} else if totalBs > 0 && totalSto > 0 {
-		lblRecommend.SetText("")
-	} else if totalBs > 0 {
-		lblRecommend.SetText("✅ 推荐")
+	} else if totalSto > 0 && totalBs > 0 {
+		if costSto < costBs {
+			lblStoRecommend.SetText("✅ 推荐")
+		} else {
+			lblRecommend.SetText("✅ 推荐")
+		}
 	}
 }
 

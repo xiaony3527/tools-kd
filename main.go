@@ -93,12 +93,13 @@ var (
 	lblCount   *walk.Label
 
 	// --- Zone 3: Price cards ---
-	lblStoCost   *walk.Label
-	lblStoDetail *walk.Label
-	lblStoNote   *walk.Label
-	lblBsCost    *walk.Label
-	lblBsDetail  *walk.Label
-	lblRecommend *walk.Label
+	lblStoCost      *walk.Label
+	lblStoDetail    *walk.Label
+	lblStoNote      *walk.Label
+	lblStoRecommend *walk.Label
+	lblBsCost       *walk.Label
+	lblBsDetail     *walk.Label
+	lblRecommend    *walk.Label
 
 	// --- Destination dropdowns (used with AI) ---
 	cmbProvince *walk.ComboBox

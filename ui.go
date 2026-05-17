@@ -26,11 +26,24 @@ func buildUI() error {
 			},
 			// === Zone 1: Address ===
 			Composite{
-				Layout: HBox{Margins: Margins{10, 8, 10, 0}, Spacing: 6},
+				Layout: VBox{Margins: Margins{10, 8, 10, 0}, Spacing: 4},
 				Children: []Widget{
-					LineEdit{AssignTo: &inpAddress, CueBanner: "粘贴收件地址，点击AI解析", StretchFactor: 2},
-					PushButton{AssignTo: &btnAnalyze, Text: "🤖 AI 解析", OnClicked: onAnalyzeAddress},
-					Label{AssignTo: &lblDest, Text: "▸ —", Font: Font{Bold: true}},
+					Composite{
+						Layout: HBox{MarginsZero: true, Spacing: 6},
+						Children: []Widget{
+							LineEdit{AssignTo: &inpAddress, CueBanner: "粘贴收件地址，点击AI解析", StretchFactor: 2},
+							PushButton{AssignTo: &btnAnalyze, Text: "🤖 AI 解析", OnClicked: onAnalyzeAddress},
+							Label{AssignTo: &lblDest, Text: "▸ —", Font: Font{Bold: true}},
+						},
+					},
+					// Hidden: province/city dropdowns (used for AI address matching + price lookup)
+					Composite{
+						Layout: HBox{Margins: Margins{10, 0, 10, 4}, Spacing: 4},
+						Children: []Widget{
+							ComboBox{AssignTo: &cmbProvince, Model: provinces, CurrentIndex: 0, OnCurrentIndexChanged: onProvinceChanged, MinSize: Size{0, 0}},
+							ComboBox{AssignTo: &cmbCity, Model: []string{}, MinSize: Size{0, 0}},
+						},
+					},
 				},
 			},
 			// === Zone 2: Package ===
@@ -112,6 +125,7 @@ func buildUI() error {
 						Children: []Widget{
 							Label{AssignTo: &lblStoCost, Text: "¥—", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(102, 126, 234)},
 							Label{AssignTo: &lblStoDetail, Text: "计费重 — kg", Font: Font{PointSize: 9}},
+							Label{AssignTo: &lblStoRecommend, Text: "", Font: Font{PointSize: 10, Bold: true}, TextColor: walk.RGB(46, 139, 87)},
 							Label{AssignTo: &lblStoNote, Text: "", Font: Font{PointSize: 9}, TextColor: walk.RGB(230, 126, 34)},
 						},
 					},
