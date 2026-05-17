@@ -84,6 +84,10 @@ func (c *Calc) AddPackage(l, w, h, vol, actual float64, qty int, mode InputMode)
 		actual = 0
 	case ModeDimWeight:
 		vol = CalcVolume(l, w, h)
+	default:
+		// Unknown/illegal mode: treat as default (dim+weight)
+		vol = CalcVolume(l, w, h)
+		mode = ModeDimWeight
 	}
 	p := Package{
 		ID:           c.nextID,
