@@ -13,11 +13,10 @@ var inputMode InputMode = ModeDimWeight
 func setupEvents() {
 	// Focus select-all
 	for _, inp := range []*walk.LineEdit{inpLength, inpWidth, inpHeight, inpQty, inpActual, inpVolume, inpVolQty, inpAddress} {
+		inp := inp // capture loop variable
 		inp.FocusedChanged().Attach(func() {
 			txt := inp.Text()
-			if len(txt) > 0 {
-				inp.SetTextSelection(0, len(txt))
-			}
+			if len(txt) > 0 { inp.SetTextSelection(0, len(txt)) }
 		})
 	}
 
