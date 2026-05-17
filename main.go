@@ -29,6 +29,9 @@ func main() {
 
 	// 添加包裹: view.addPackage(length, width, height, volume, isDirect, qty)
 	w.DefineFunction("addPackage", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) < 6 {
+			return sciter.NewValue("error: addPackage needs 6 args")
+		}
 		l := args[0].Float()
 		wV := args[1].Float()
 		h := args[2].Float()
@@ -45,6 +48,9 @@ func main() {
 
 	// 删除包裹: view.deletePackage(id)
 	w.DefineFunction("deletePackage", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) < 1 {
+			return sciter.NewValue("error: deletePackage needs 1 arg")
+		}
 		id := args[0].Int()
 		calc.DeletePackage(id)
 		return buildPackageListResult(calc)
@@ -53,11 +59,14 @@ func main() {
 	// 清空包裹: view.clearPackages()
 	w.DefineFunction("clearPackages", func(args ...*sciter.Value) *sciter.Value {
 		calc.ClearPackages()
-		return sciter.NewValue("ok")
+		return buildPackageListResult(calc)
 	})
 
 	// 实时预览: view.preview(l, w, h, vol, isDirect)
 	w.DefineFunction("preview", func(args ...*sciter.Value) *sciter.Value {
+		if len(args) < 5 {
+			return sciter.NewValue("error: preview needs 5 args")
+		}
 		l := args[0].Float()
 		wV := args[1].Float()
 		h := args[2].Float()
@@ -79,7 +88,10 @@ func main() {
 	})
 
 	// 加载 HTML
-	fullpath, _ := filepath.Abs("res/index.html")
+	fullpath, err := filepath.Abs("res/index.html")
+	if err != nil {
+		log.Fatal("无法定位资源文件:", err)
+	}
 	w.LoadFile(fullpath)
 
 	w.Show()
