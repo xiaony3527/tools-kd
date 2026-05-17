@@ -1,14 +1,17 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"log"
-	"path/filepath"
 	"runtime"
 
 	"github.com/sciter-sdk/go-sciter"
 	"github.com/sciter-sdk/go-sciter/window"
 )
+
+//go:embed res/index.html
+var indexHTML string
 
 func main() {
 	runtime.LockOSThread() // Sciter 要求
@@ -87,14 +90,8 @@ func main() {
 		return result
 	})
 
-	// 加载 HTML
-	fullpath, err := filepath.Abs("res/index.html")
-	if err != nil {
-		log.Fatal("无法定位资源文件:", err)
-	}
-	if err := w.LoadFile(fullpath); err != nil {
-		log.Fatal("加载 UI 失败:", err)
-	}
+	// 加载 HTML（嵌入资源，无需外部文件）
+	w.LoadHtml(indexHTML, "about:blank")
 
 	w.Show()
 	w.Run()
