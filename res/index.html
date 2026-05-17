@@ -520,7 +520,24 @@
 
   // ====== 添加包裹 ======
   function doAddPackage() {
+    // 先校验件数
+    var qtyRaw;
+    if (isDirectMode) {
+      qtyRaw = parseInt($(#volQty).value);
+    } else {
+      qtyRaw = parseInt($(#dimQty).value);
+    }
+    if (isNaN(qtyRaw) || qtyRaw < 1) {
+      if (isDirectMode) {
+        $(#volQty).setAttribute("class", "error");
+      } else {
+        $(#dimQty).setAttribute("class", "error");
+      }
+      return;
+    }
+
     var v = getInputValues();
+    v.quantity = qtyRaw;  // 用校验过的值覆盖 getInputValues 的归一化结果
 
     var valid = false;
     if (isDirectMode) {
