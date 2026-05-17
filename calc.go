@@ -2,6 +2,15 @@ package main
 
 import "math"
 
+// InputMode 包裹录入模式
+type InputMode int
+
+const (
+	ModeDimWeight InputMode = iota // 长宽高+实重（默认）
+	ModeWeightOnly                 // 仅实重（无体积参与）
+	ModeVolumeOnly                 // 仅体积（无实重参与）
+)
+
 // Package 表示一个包裹
 type Package struct {
 	ID           int
@@ -9,9 +18,9 @@ type Package struct {
 	Width        float64 // 宽(cm)
 	Height       float64 // 高(cm)
 	Volume       float64 // 体积(cm³)
-	Quantity     int     // 件数
-	IsDirectVol  bool    // true=直接体积模式
-	ActualWeight float64 // 实际重量(kg)，用户输入
+	Quantity     int       // 件数
+	Mode         InputMode // 录入模式
+	ActualWeight float64   // 实际重量(kg)，用户输入
 }
 
 // Calc 包裹列表管理器
@@ -67,8 +76,13 @@ func CalcVolume(l, w, h float64) float64 {
 }
 
 // AddPackage 添加包裹
-func (c *Calc) AddPackage(l, w, h, vol, actual float64, qty int, isDirect bool) []Package {
-	if !isDirect {
+func (c *Calc) AddPackage(l, w, h, vol, actual float64, qty int, mode InputMode) []Package {
+	switch mode {
+	case ModeWeightOnly:
+		vol = 0
+	case ModeVolumeOnly:
+		actual = 0
+	case ModeDimWeight:
 		vol = CalcVolume(l, w, h)
 	}
 	p := Package{
@@ -78,7 +92,7 @@ func (c *Calc) AddPackage(l, w, h, vol, actual float64, qty int, isDirect bool) 
 		Height:       h,
 		Volume:       vol,
 		Quantity:     qty,
-		IsDirectVol:  isDirect,
+		Mode:         mode,
 		ActualWeight: actual,
 	}
 	c.packages = append(c.packages, p)
