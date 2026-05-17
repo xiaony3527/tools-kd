@@ -378,7 +378,7 @@
 
   // ====== UI 元素引用 ======
   function $(sel) { return self.select(sel); }
-  function $$(sel) { return self.selectAll(sel); }
+
 
   // ====== 初始化 ======
   function init() {
@@ -400,21 +400,22 @@
         $(#dimHeight).state.focus = true;
       } else if (id == "dimHeight") {
         $(#dimQty).state.focus = true;
-      } else if (id == "dimQty" || id == "volVolume" || id == "volQty") {
+      } else if (id == "dimQty") {
+        doAddPackage();
+      } else if (id == "volVolume") {
+        $(#volQty).state.focus = true;
+      } else if (id == "volQty") {
         doAddPackage();
       }
     });
 
     // 输入框内容变化 → 实时预览 + 验证按钮状态
-    var dimFields = [$(#dimLength), $(#dimWidth), $(#dimHeight), $(#dimQty)];
-    var volFields = [$(#volVolume), $(#volQty)];
-
-    for (var i in dimFields) {
-      dimFields[i].on("input", updatePreview);
-    }
-    for (var j in volFields) {
-      volFields[j].on("input", updatePreview);
-    }
+    $(#dimLength).on("input", updatePreview);
+    $(#dimWidth).on("input", updatePreview);
+    $(#dimHeight).on("input", updatePreview);
+    $(#dimQty).on("input", updatePreview);
+    $(#volVolume).on("input", updatePreview);
+    $(#volQty).on("input", updatePreview);
 
     // 模式切换
     $(#toggleMode).on("click", toggleInputMode);
@@ -452,13 +453,13 @@
     if (isDirectMode) {
       var vs = parseFloat($(#volVolume).value);
       vol = vs || 0;
-      qty = parseFloat($(#volQty).value) || 1;
+      qty = parseInt($(#volQty).value) || 1;
       if (qty < 1) qty = 1;
     } else {
       l = parseFloat($(#dimLength).value) || 0;
       w = parseFloat($(#dimWidth).value) || 0;
       h = parseFloat($(#dimHeight).value) || 0;
-      qty = parseFloat($(#dimQty).value) || 1;
+      qty = parseInt($(#dimQty).value) || 1;
       if (qty < 1) qty = 1;
       vol = l * w * h;
     }
@@ -484,16 +485,34 @@
     // 验证按钮
     var valid = false;
     if (isDirectMode) {
-      valid = volume > 0;
-      $(#volVolume).classList.toggle("error", parseFloat($(#volVolume).value) != "" && !valid);
+      var qtyRaw = parseInt($(#volQty).value);
+      valid = volume > 0 && !isNaN(qtyRaw) && qtyRaw >= 1;
+      if (parseFloat($(#volVolume).value) != "" && !valid) {
+        $(#volVolume).setAttribute("class", "error");
+      } else {
+        $(#volVolume).removeAttribute("class");
+      }
     } else {
       var lv = parseFloat($(#dimLength).value) || 0;
       var wv = parseFloat($(#dimWidth).value) || 0;
       var hv = parseFloat($(#dimHeight).value) || 0;
-      valid = lv > 0 && wv > 0 && hv > 0;
-      $(#dimLength).classList.toggle("error", $(#dimLength).value != "" && lv <= 0);
-      $(#dimWidth).classList.toggle("error", $(#dimWidth).value != "" && wv <= 0);
-      $(#dimHeight).classList.toggle("error", $(#dimHeight).value != "" && hv <= 0);
+      var qtyRaw = parseInt($(#dimQty).value);
+      valid = lv > 0 && wv > 0 && hv > 0 && !isNaN(qtyRaw) && qtyRaw >= 1;
+      if ($(#dimLength).value != "" && lv <= 0) {
+        $(#dimLength).setAttribute("class", "error");
+      } else {
+        $(#dimLength).removeAttribute("class");
+      }
+      if ($(#dimWidth).value != "" && wv <= 0) {
+        $(#dimWidth).setAttribute("class", "error");
+      } else {
+        $(#dimWidth).removeAttribute("class");
+      }
+      if ($(#dimHeight).value != "" && hv <= 0) {
+        $(#dimHeight).setAttribute("class", "error");
+      } else {
+        $(#dimHeight).removeAttribute("class");
+      }
     }
 
     $(#btnAdd).state.disabled = !valid;
@@ -564,16 +583,25 @@
         } else {
           dimDesc = p.length + "×" + p.width + "×" + p.height;
         }
+        if (p.quantity > 1) {
+          dimDesc = dimDesc + " ×" + p.quantity + "件";
+        }
 
         // 体积格式化
         var volFmt = p.volume.toLocaleString();
+
+        // 重量列
+        var stoCell = p.stoWeight + " kg";
+        if (p.quantity > 1) stoCell = stoCell + " ×" + p.quantity;
+        var bsCell = p.bsWeight + " kg";
+        if (p.quantity > 1) bsCell = bsCell + " ×" + p.quantity;
 
         html += "<tr>";
         html += "<td>" + p.id + "</td>";
         html += "<td>" + dimDesc + "</td>";
         html += "<td class='right'>" + volFmt + "</td>";
-        html += "<td class='right'><b>" + p.stoWeight + " kg</b></td>";
-        html += "<td class='right'><b>" + p.bsWeight + " kg</b></td>";
+        html += "<td class='right'><b>" + stoCell + "</b></td>";
+        html += "<td class='right'><b>" + bsCell + "</b></td>";
         html += "<td class='center'><span class='btn-del' onclick='doDeletePackage(" + p.id + ")'>×</span></td>";
         html += "</tr>";
       }
