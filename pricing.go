@@ -9,8 +9,8 @@ import (
 type PriceEntry struct {
 	Province string
 	City     string
-	Base50   float64 // ≤50kg 基础收费
-	R50_70   float64 // 50-70kg 单价(元/kg)
+	Base30   float64 // ≤30kg 基础收费
+	R30_70   float64 // 30-70kg 单价(元/kg)
 	R70_300  float64 // 70-300kg
 	R300_1k  float64 // 300-1000kg
 	R1kPlus  float64 // >1000kg
@@ -141,7 +141,7 @@ var priceData = []PriceEntry{
 	{"山东省", "默认", 37.5000, 1.2500, 1.0961, 0.8475, 0.8023},
 	{"山东省", "济南市", 37.5000, 1.2500, 1.0961, 0.8475, 0.8023},
 	{"山东省", "济宁市", 37.5000, 1.2500, 1.0961, 0.8588, 0.8023},
-	{"山东省", "临沂市", 36.0000, 1.2000, 1.0500, 0.8136, 0.7684},
+	{"山东省", "临沂市", 36.0000, 1.2000, 1.0509, 0.8136, 0.7684},
 	{"山东省", "青岛市", 36.0000, 1.2000, 1.0500, 0.8249, 0.7784},
 	{"山东省", "潍坊市", 37.8000, 1.2600, 1.0961, 0.8588, 0.8023},
 	// 山西省
@@ -232,21 +232,21 @@ func GetPriceDefault(province, city string) PriceEntry {
 	return PriceEntry{}
 }
 
-// CalcBsCost 计费重(kg) → 百世运费(元)，分段累进
+// CalcBsCost 计费重(kg) → 百世运费(元)，分段累进 (30kg起)
 func CalcBsCost(weight float64, p PriceEntry) float64 {
 	if weight <= 0 {
 		return 0
 	}
-	if weight <= 50 {
-		return p.Base50
+	if weight <= 30 {
+		return p.Base30
 	}
 
-	cost := p.Base50
-	remain := weight - 50
+	cost := p.Base30
+	remain := weight - 30
 
-	// 50-70kg: 最多20kg
-	tier := math.Min(remain, 20)
-	cost += tier * p.R50_70
+	// 30-70kg: 最多40kg
+	tier := math.Min(remain, 40)
+	cost += tier * p.R30_70
 	remain -= tier
 	if remain <= 0 {
 		return cost

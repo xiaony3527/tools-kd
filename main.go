@@ -594,7 +594,7 @@ func updateShippingCost() {
 	p := GetPriceDefault(province, city)
 	totalBs := float64(calcInst.TotalBs())
 	if totalBs <= 0 {
-		lblBsCost.SetText(fmt.Sprintf("百世: ¥%.2f (0kg基础)", p.Base50))
+		lblBsCost.SetText(fmt.Sprintf("百世: ¥%.2f (0kg基础)", p.Base30))
 	} else {
 		cost := CalcBsCost(totalBs, p)
 		lblBsCost.SetText(fmt.Sprintf("百世: ¥%.2f (%.0fkg)", cost, totalBs))
