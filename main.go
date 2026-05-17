@@ -22,14 +22,23 @@ func (m *PackageTableModel) Value(row, col int) interface{} {
 	switch col {
 	case 0: // #
 		return p.ID
-	case 1: // 尺寸
+	case 1: // 尺寸 (含件数)
 		if p.IsDirectVol {
+			if p.Quantity > 1 {
+				return fmt.Sprintf("直接输入 ×%d件", p.Quantity)
+			}
 			return "直接输入"
 		}
+		var dims string
 		if p.Length == float64(int(p.Length)) && p.Width == float64(int(p.Width)) && p.Height == float64(int(p.Height)) {
-			return fmt.Sprintf("%.0f×%.0f×%.0f", p.Length, p.Width, p.Height)
+			dims = fmt.Sprintf("%.0f×%.0f×%.0f", p.Length, p.Width, p.Height)
+		} else {
+			dims = fmt.Sprintf("%.1f×%.1f×%.1f", p.Length, p.Width, p.Height)
 		}
-		return fmt.Sprintf("%.1f×%.1f×%.1f", p.Length, p.Width, p.Height)
+		if p.Quantity > 1 {
+			return dims + fmt.Sprintf(" ×%d件", p.Quantity)
+		}
+		return dims
 	case 2: // 实重
 		if p.ActualWeight > 0 {
 			return fmt.Sprintf("%.1f", p.ActualWeight)
@@ -37,14 +46,18 @@ func (m *PackageTableModel) Value(row, col int) interface{} {
 		return "—"
 	case 3: // 体积
 		return fmt.Sprintf("%.0f", p.Volume)
-	case 4: // 申抛重
-		return fmt.Sprintf("%d", StoVolWeight(p.Volume))
-	case 5: // 百抛重
-		return fmt.Sprintf("%d", BsVolWeight(p.Volume))
-	case 6: // 申计费
-		return fmt.Sprintf("%d", StoBillable(p.Volume, p.ActualWeight))
-	case 7: // 百计费
-		return fmt.Sprintf("%d", BsBillable(p.Volume, p.ActualWeight))
+	case 4: // 申抛重 (×件数)
+		v := StoVolWeight(p.Volume) * p.Quantity
+		return fmt.Sprintf("%d", v)
+	case 5: // 百抛重 (×件数)
+		v := BsVolWeight(p.Volume) * p.Quantity
+		return fmt.Sprintf("%d", v)
+	case 6: // 申计费 (×件数)
+		v := StoBillable(p.Volume, p.ActualWeight) * p.Quantity
+		return fmt.Sprintf("%d", v)
+	case 7: // 百计费 (×件数)
+		v := BsBillable(p.Volume, p.ActualWeight) * p.Quantity
+		return fmt.Sprintf("%d", v)
 	}
 	return ""
 }
