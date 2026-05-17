@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"strings"
 )
 
@@ -232,7 +231,7 @@ func GetPriceDefault(province, city string) PriceEntry {
 	return PriceEntry{}
 }
 
-// CalcBsCost 计费重(kg) → 百世运费(元)，分段累进 (30kg起)
+// CalcBsCost 计费重(kg) → 百世运费(元)，全重单价（不低于最低收费）
 func CalcBsCost(weight float64, p PriceEntry) float64 {
 	if weight <= 0 {
 		return 0
@@ -241,35 +240,24 @@ func CalcBsCost(weight float64, p PriceEntry) float64 {
 		return p.Base30
 	}
 
-	cost := p.Base30
-	remain := weight - 30
-
-	// 30-70kg: 最多40kg
-	tier := math.Min(remain, 40)
-	cost += tier * p.R30_70
-	remain -= tier
-	if remain <= 0 {
-		return cost
+	// 全重 × 对应档位单价
+	var rate float64
+	switch {
+	case weight <= 70:
+		rate = p.R30_70
+	case weight <= 300:
+		rate = p.R70_300
+	case weight <= 1000:
+		rate = p.R300_1k
+	default:
+		rate = p.R1kPlus
 	}
 
-	// 70-300kg: 最多230kg
-	tier = math.Min(remain, 230)
-	cost += tier * p.R70_300
-	remain -= tier
-	if remain <= 0 {
-		return cost
+	cost := weight * rate
+	// 不低于最低收费
+	if cost < p.Base30 {
+		return p.Base30
 	}
-
-	// 300-1000kg: 最多700kg
-	tier = math.Min(remain, 700)
-	cost += tier * p.R300_1k
-	remain -= tier
-	if remain <= 0 {
-		return cost
-	}
-
-	// >1000kg: 剩余全部
-	cost += remain * p.R1kPlus
 	return cost
 }
 
