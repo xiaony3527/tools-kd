@@ -20,23 +20,31 @@ func (m *PackageTableModel) RowCount() int { return len(m.calc.GetPackages()) }
 func (m *PackageTableModel) Value(row, col int) interface{} {
 	p := m.calc.GetPackages()[row]
 	switch col {
-	case 0:
+	case 0: // #
 		return p.ID
-	case 1:
+	case 1: // 尺寸
 		if p.IsDirectVol {
 			return "直接输入"
 		}
-		// Need to handle integer dimensions display cleanly
 		if p.Length == float64(int(p.Length)) && p.Width == float64(int(p.Width)) && p.Height == float64(int(p.Height)) {
 			return fmt.Sprintf("%.0f×%.0f×%.0f", p.Length, p.Width, p.Height)
 		}
 		return fmt.Sprintf("%.1f×%.1f×%.1f", p.Length, p.Width, p.Height)
-	case 2:
+	case 2: // 实重
+		if p.ActualWeight > 0 {
+			return fmt.Sprintf("%.1f", p.ActualWeight)
+		}
+		return "—"
+	case 3: // 体积
 		return fmt.Sprintf("%.0f", p.Volume)
-	case 3:
-		return fmt.Sprintf("%d kg", StoWeight(p.Volume))
-	case 4:
-		return fmt.Sprintf("%d kg", BsWeight(p.Volume))
+	case 4: // 申抛重
+		return fmt.Sprintf("%d", StoVolWeight(p.Volume))
+	case 5: // 百抛重
+		return fmt.Sprintf("%d", BsVolWeight(p.Volume))
+	case 6: // 申计费
+		return fmt.Sprintf("%d", StoBillable(p.Volume, p.ActualWeight))
+	case 7: // 百计费
+		return fmt.Sprintf("%d", BsBillable(p.Volume, p.ActualWeight))
 	}
 	return ""
 }
@@ -45,7 +53,7 @@ func (m *PackageTableModel) Value(row, col int) interface{} {
 
 var (
 	mw           *walk.MainWindow
-	calc         *Calc
+	calcInst     *Calc
 	model        *PackageTableModel
 	isDirectMode bool
 
@@ -58,31 +66,32 @@ var (
 	btnAdd      *walk.PushButton
 	btnClear    *walk.PushButton
 
-	inpLength *walk.LineEdit
-	inpWidth  *walk.LineEdit
-	inpHeight *walk.LineEdit
-	inpDimQty *walk.LineEdit
-	inpVolume *walk.LineEdit
-	inpVolQty *walk.LineEdit
+	inpLength   *walk.LineEdit
+	inpWidth    *walk.LineEdit
+	inpHeight   *walk.LineEdit
+	inpDimQty   *walk.LineEdit
+	inpDimActual *walk.LineEdit
+	inpVolume   *walk.LineEdit
+	inpVolQty   *walk.LineEdit
+	inpVolActual *walk.LineEdit
 
-	dimGroup *walk.Composite
-	volGroup *walk.Composite
-	lnkToggle *walk.LinkLabel
+	dimGroup   *walk.Composite
+	volGroup   *walk.Composite
+	lnkToggle  *walk.LinkLabel
 
-	titleBar *walk.Composite
+	titleBar   *walk.Composite
 	summaryBar *walk.Composite
 )
 
 func main() {
-	calc = NewCalc()
-	model = &PackageTableModel{calc: calc}
+	calcInst = NewCalc()
+	model = &PackageTableModel{calc: calcInst}
 	isDirectMode = false
 
 	if err := buildUI(); err != nil {
 		log.Fatal(err)
 	}
 
-	// Imperative setup after window creation
 	applyStyling()
 	setupEvents()
 	mw.SetVisible(true)
@@ -93,12 +102,16 @@ func main() {
 
 // ====== UI Construction ======
 
+const winW, winH = 1100, 520
+
 func buildUI() error {
+	fs := Size{winW, winH}
 	return MainWindow{
 		AssignTo: &mw,
 		Title:    "快递体积重计算器",
-		MinSize:  Size{800, 450},
-		Size:     Size{960, 500},
+		MinSize:  fs,
+		MaxSize:  fs,
+		Size:     fs,
 		Layout:   VBox{MarginsZero: true, SpacingZero: true},
 		Children: []Widget{
 			// Title bar
@@ -124,7 +137,7 @@ func buildUI() error {
 				Children: []Widget{
 					// Left panel: package list
 					Composite{
-						Layout: VBox{Margins: Margins{12, 12, 6, 12}},
+						Layout: VBox{Margins: Margins{10, 10, 6, 10}},
 						Children: []Widget{
 							Composite{
 								Layout: HBox{MarginsZero: true},
@@ -141,23 +154,26 @@ func buildUI() error {
 								LastColumnStretched: true,
 								StretchFactor:       3,
 								Columns: []TableViewColumn{
-									{Title: "#", Width: 36},
-									{Title: "尺寸 (cm)", Width: 120},
-									{Title: "体积 cm³", Width: 80, Alignment: AlignFar},
-									{Title: "申通", Width: 72, Alignment: AlignFar},
-									{Title: "百世", Width: 72, Alignment: AlignFar},
+									{Title: "#", Width: 28, Alignment: AlignCenter},
+									{Title: "尺寸(cm)", Width: 110},
+									{Title: "实重kg", Width: 52, Alignment: AlignFar},
+									{Title: "体积cm³", Width: 68, Alignment: AlignFar},
+									{Title: "申抛重", Width: 52, Alignment: AlignFar},
+									{Title: "百抛重", Width: 52, Alignment: AlignFar},
+									{Title: "申计费", Width: 55, Alignment: AlignFar},
+									{Title: "百计费", Width: 55, Alignment: AlignFar},
 								},
 							},
 							// Summary bar
 							Composite{
 								AssignTo: &summaryBar,
 								Layout:   HBox{Margins: Margins{10, 8, 10, 8}},
-								MinSize:  Size{0, 52},
+								MinSize:  Size{0, 50},
 								Children: []Widget{
 									Composite{
 										Layout: VBox{MarginsZero: true, SpacingZero: true},
 										Children: []Widget{
-											Label{Text: "申通快递", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
+											Label{Text: "申通快递 · 计费重", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
 											Label{AssignTo: &lblSto, Text: "0 kg", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 18, Bold: true}},
 											Label{Text: "系数 8000", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 7}},
 										},
@@ -169,7 +185,7 @@ func buildUI() error {
 									Composite{
 										Layout: VBox{MarginsZero: true, SpacingZero: true},
 										Children: []Widget{
-											Label{Text: "百世快运", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
+											Label{Text: "百世快运 · 计费重", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 8}},
 											Label{AssignTo: &lblBs, Text: "0 kg", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 18, Bold: true}},
 											Label{Text: "系数 5000", TextColor: walk.RGB(255,255,255), Font: Font{PointSize: 7}},
 										},
@@ -186,7 +202,7 @@ func buildUI() error {
 					},
 					// Right panel: input
 					Composite{
-						Layout: VBox{Margins: Margins{6, 12, 12, 12}, Spacing: 10},
+						Layout: VBox{Margins: Margins{6, 10, 10, 10}, Spacing: 8},
 						Children: []Widget{
 							// Address
 							GroupBox{
@@ -198,8 +214,8 @@ func buildUI() error {
 							},
 							// Package input
 							GroupBox{
-								Title: "📝 包裹尺寸",
-								Layout: VBox{Margins: Margins{10, 10, 10, 10}, Spacing: 6},
+								Title:  "📝 包裹尺寸",
+								Layout: VBox{Margins: Margins{10, 10, 10, 10}, Spacing: 5},
 								Children: []Widget{
 									LinkLabel{
 										AssignTo:        &lnkToggle,
@@ -215,6 +231,7 @@ func buildUI() error {
 											Label{Text: "宽 (cm):"}, LineEdit{AssignTo: &inpWidth},
 											Label{Text: "高 (cm):"}, LineEdit{AssignTo: &inpHeight},
 											Label{Text: "件数:"}, LineEdit{AssignTo: &inpDimQty, Text: "1"},
+											Label{Text: "实重(kg):"}, LineEdit{AssignTo: &inpDimActual, CueBanner: "可选"},
 										},
 									},
 									// Volume input (hidden by default)
@@ -225,16 +242,17 @@ func buildUI() error {
 										Children: []Widget{
 											Label{Text: "体积 (cm³):"}, LineEdit{AssignTo: &inpVolume},
 											Label{Text: "件数:"}, LineEdit{AssignTo: &inpVolQty, Text: "1"},
+											Label{Text: "实重(kg):"}, LineEdit{AssignTo: &inpVolActual, CueBanner: "可选"},
 										},
 									},
 									Label{
-										Text: "⏎ Enter 跳转 ｜ 聚焦全选 ｜ 件数处回车添加",
+										Text: "⏎ Enter 跳转 ｜ 聚焦全选 ｜ 最后回车添加",
 										Font: Font{PointSize: 7},
 									},
 									// Preview
 									Label{
 										AssignTo: &lblPreview,
-										Text:     "体积 — cm³ ｜ 申通 — kg ｜ 百世 — kg",
+										Text:     "体积 — cm³ ｜ 实重 — kg ｜ 抛重 申—/百— ｜ 计费 申—/百— kg",
 										Font:     Font{PointSize: 9},
 									},
 									PushButton{
@@ -268,29 +286,28 @@ func applyStyling() {
 // ====== Event Setup ======
 
 func setupEvents() {
-	// Focus select-all on all input fields
-	setupSelectAll(inpLength)
-	setupSelectAll(inpWidth)
-	setupSelectAll(inpHeight)
-	setupSelectAll(inpDimQty)
-	setupSelectAll(inpVolume)
-	setupSelectAll(inpVolQty)
+	// Focus select-all
+	for _, inp := range []*walk.LineEdit{
+		inpLength, inpWidth, inpHeight, inpDimQty, inpDimActual,
+		inpVolume, inpVolQty, inpVolActual,
+	} {
+		setupSelectAll(inp)
+	}
 
-	// Enter key: tab between fields, submit on qty
+	// Enter key: tab between fields
 	setupEnterKey(inpLength, inpWidth)
 	setupEnterKey(inpWidth, inpHeight)
 	setupEnterKey(inpHeight, inpDimQty)
-	inpDimQty.KeyDown().Attach(func(key walk.Key) {
+	setupEnterKey(inpDimQty, inpDimActual)
+	inpDimActual.KeyDown().Attach(func(key walk.Key) {
 		if key == walk.KeyReturn {
 			onAddPackage()
 		}
 	})
-	inpVolume.KeyDown().Attach(func(key walk.Key) {
-		if key == walk.KeyReturn {
-			inpVolQty.SetFocus()
-		}
-	})
-	inpVolQty.KeyDown().Attach(func(key walk.Key) {
+
+	setupEnterKey(inpVolume, inpVolQty)
+	setupEnterKey(inpVolQty, inpVolActual)
+	inpVolActual.KeyDown().Attach(func(key walk.Key) {
 		if key == walk.KeyReturn {
 			onAddPackage()
 		}
@@ -301,13 +318,14 @@ func setupEvents() {
 	inpWidth.TextChanged().Attach(func() { updateAll() })
 	inpHeight.TextChanged().Attach(func() { updateAll() })
 	inpDimQty.TextChanged().Attach(func() { updateAll() })
+	inpDimActual.TextChanged().Attach(func() { updateAll() })
 	inpVolume.TextChanged().Attach(func() { updateAll() })
 	inpVolQty.TextChanged().Attach(func() { updateAll() })
+	inpVolActual.TextChanged().Attach(func() { updateAll() })
 
 	// Table double-click = delete row
 	tblPackages.ItemActivated().Attach(onDeleteSelected)
 
-	// Window close handler
 	mw.Closing().Attach(func(cancel *bool, reason walk.CloseReason) {
 		walk.App().Exit(0)
 	})
@@ -344,7 +362,7 @@ func parseInt(s string) int {
 	return n
 }
 
-func getInputData() (l, w, h, vol float64, qty int, isDirect bool, valid bool) {
+func getInputData() (l, w, h, vol, actual float64, qty int, isDirect bool, valid bool) {
 	isDirect = isDirectMode
 
 	if isDirect {
@@ -353,6 +371,7 @@ func getInputData() (l, w, h, vol float64, qty int, isDirect bool, valid bool) {
 			return
 		}
 		qty = parseInt(inpVolQty.Text())
+		actual = parseFloat(inpVolActual.Text())
 	} else {
 		l = parseFloat(inpLength.Text())
 		w = parseFloat(inpWidth.Text())
@@ -362,6 +381,7 @@ func getInputData() (l, w, h, vol float64, qty int, isDirect bool, valid bool) {
 		}
 		qty = parseInt(inpDimQty.Text())
 		vol = l * w * h
+		actual = parseFloat(inpDimActual.Text())
 	}
 
 	if qty < 1 {
@@ -379,9 +399,9 @@ func updateAll() {
 }
 
 func updatePreview() {
-	l, w, h, vol, _, isDirect, valid := getInputData()
+	l, w, h, vol, actual, _, isDirect, valid := getInputData()
 	if !valid {
-		lblPreview.SetText("体积 — cm³ ｜ 申通 — kg ｜ 百世 — kg")
+		lblPreview.SetText("体积 — cm³ ｜ 实重 — kg ｜ 抛重 申—/百— ｜ 计费 申—/百— kg")
 		return
 	}
 
@@ -392,45 +412,53 @@ func updatePreview() {
 		volume = l * w * h
 	}
 
-	sto := StoWeight(volume)
-	bs := BsWeight(volume)
-	lblPreview.SetText(fmt.Sprintf("体积 %.0f cm³ ｜ 申通 %d kg ｜ 百世 %d kg", volume, sto, bs))
+	stoVol := StoVolWeight(volume)
+	bsVol := BsVolWeight(volume)
+	stoBill := StoBillable(volume, actual)
+	bsBill := BsBillable(volume, actual)
+
+	lblPreview.SetText(fmt.Sprintf(
+		"体积 %.0f cm³ ｜ 实重 %.1f kg ｜ 抛重 申%d/百%d kg ｜ 计费 申%d/百%d kg",
+		volume, actual, stoVol, bsVol, stoBill, bsBill,
+	))
 }
 
 func updateAddButtonState() {
-	_, _, _, _, _, _, valid := getInputData()
+	_, _, _, _, _, _, _, valid := getInputData()
 	btnAdd.SetEnabled(valid)
 }
 
 func updatePackageList() {
 	model.PublishRowsReset()
-	lblCount.SetText(fmt.Sprintf("共 %d 件", calc.Count()))
-	lblSto.SetText(fmt.Sprintf("%d kg", calc.TotalSto()))
-	lblBs.SetText(fmt.Sprintf("%d kg", calc.TotalBs()))
-	btnClear.SetEnabled(calc.Count() > 0)
+	lblCount.SetText(fmt.Sprintf("共 %d 件", calcInst.Count()))
+	lblSto.SetText(fmt.Sprintf("%d kg", calcInst.TotalSto()))
+	lblBs.SetText(fmt.Sprintf("%d kg", calcInst.TotalBs()))
+	btnClear.SetEnabled(calcInst.Count() > 0)
 }
 
 // ====== Actions ======
 
 func onAddPackage() {
-	l, w, h, vol, qty, isDirect, valid := getInputData()
+	l, w, h, vol, actual, qty, isDirect, valid := getInputData()
 	if !valid {
 		return
 	}
 
-	calc.AddPackage(l, w, h, vol, qty, isDirect)
+	calcInst.AddPackage(l, w, h, vol, actual, qty, isDirect)
 	updatePackageList()
 
 	// Clear inputs, focus first field
 	if isDirect {
 		inpVolume.SetText("")
 		inpVolQty.SetText("1")
+		inpVolActual.SetText("")
 		inpVolume.SetFocus()
 	} else {
 		inpLength.SetText("")
 		inpWidth.SetText("")
 		inpHeight.SetText("")
 		inpDimQty.SetText("1")
+		inpDimActual.SetText("")
 		inpLength.SetFocus()
 	}
 
@@ -442,16 +470,16 @@ func onDeleteSelected() {
 	if idx < 0 {
 		return
 	}
-	pkgs := calc.GetPackages()
+	pkgs := calcInst.GetPackages()
 	if idx < len(pkgs) {
-		calc.DeletePackage(pkgs[idx].ID)
+		calcInst.DeletePackage(pkgs[idx].ID)
 	}
 	updatePackageList()
 	updateAll()
 }
 
 func onClearAll() {
-	calc.ClearPackages()
+	calcInst.ClearPackages()
 	updatePackageList()
 	updateAll()
 }

@@ -4,13 +4,14 @@ import "math"
 
 // Package 表示一个包裹
 type Package struct {
-	ID          int
-	Length      float64 // 长(cm)
-	Width       float64 // 宽(cm)
-	Height      float64 // 高(cm)
-	Volume      float64 // 体积(cm³)
-	Quantity    int     // 件数
-	IsDirectVol bool    // true=直接体积模式
+	ID           int
+	Length       float64 // 长(cm)
+	Width        float64 // 宽(cm)
+	Height       float64 // 高(cm)
+	Volume       float64 // 体积(cm³)
+	Quantity     int     // 件数
+	IsDirectVol  bool    // true=直接体积模式
+	ActualWeight float64 // 实际重量(kg)，用户输入
 }
 
 // Calc 包裹列表管理器
@@ -32,14 +33,32 @@ const (
 	BsCoefficient  = 5000.0
 )
 
-// StoWeight 申通体积重 = Ceil(体积/8000)
-func StoWeight(volume float64) int {
+// StoVolWeight 申通体积重(抛重) = Ceil(体积/8000)
+func StoVolWeight(volume float64) int {
 	return int(math.Ceil(volume / StoCoefficient))
 }
 
-// BsWeight 百世体积重 = Ceil(体积/5000)
-func BsWeight(volume float64) int {
+// BsVolWeight 百世体积重(抛重) = Ceil(体积/5000)
+func BsVolWeight(volume float64) int {
 	return int(math.Ceil(volume / BsCoefficient))
+}
+
+// StoBillable 申通计费重 = Ceil(max(实重, 抛重))
+func StoBillable(volume, actual float64) int {
+	vw := volume / StoCoefficient
+	if actual > vw {
+		return int(math.Ceil(actual))
+	}
+	return int(math.Ceil(vw))
+}
+
+// BsBillable 百世计费重 = Ceil(max(实重, 抛重))
+func BsBillable(volume, actual float64) int {
+	vw := volume / BsCoefficient
+	if actual > vw {
+		return int(math.Ceil(actual))
+	}
+	return int(math.Ceil(vw))
 }
 
 // CalcVolume 根据长宽高计算体积（长宽高模式）
@@ -48,18 +67,19 @@ func CalcVolume(l, w, h float64) float64 {
 }
 
 // AddPackage 添加包裹
-func (c *Calc) AddPackage(l, w, h, vol float64, qty int, isDirect bool) []Package {
+func (c *Calc) AddPackage(l, w, h, vol, actual float64, qty int, isDirect bool) []Package {
 	if !isDirect {
 		vol = CalcVolume(l, w, h)
 	}
 	p := Package{
-		ID:          c.nextID,
-		Length:      l,
-		Width:       w,
-		Height:      h,
-		Volume:      vol,
-		Quantity:    qty,
-		IsDirectVol: isDirect,
+		ID:           c.nextID,
+		Length:       l,
+		Width:        w,
+		Height:       h,
+		Volume:       vol,
+		Quantity:     qty,
+		IsDirectVol:  isDirect,
+		ActualWeight: actual,
 	}
 	c.packages = append(c.packages, p)
 	c.nextID++
@@ -92,20 +112,20 @@ func (c *Calc) GetPackages() []Package {
 	return c.packages
 }
 
-// TotalSto 申通体积重汇总
+// TotalSto 申通计费重汇总
 func (c *Calc) TotalSto() int {
 	total := 0
 	for _, p := range c.packages {
-		total += StoWeight(p.Volume) * p.Quantity
+		total += StoBillable(p.Volume, p.ActualWeight) * p.Quantity
 	}
 	return total
 }
 
-// TotalBs 百世体积重汇总
+// TotalBs 百世计费重汇总
 func (c *Calc) TotalBs() int {
 	total := 0
 	for _, p := range c.packages {
-		total += BsWeight(p.Volume) * p.Quantity
+		total += BsBillable(p.Volume, p.ActualWeight) * p.Quantity
 	}
 	return total
 }
