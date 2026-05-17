@@ -94,7 +94,7 @@ func buildUI() error {
 						Title:  "🚚 申通快递",
 						Layout: VBox{Margins: Margins{12, 8, 12, 8}, Spacing: 4},
 						Children: []Widget{
-							Label{AssignTo: &lblStoCost, Text: "¥— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(102, 126, 234)},
+							Label{AssignTo: &lblStoCost, Text: "— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(102, 126, 234)},
 							Label{AssignTo: &lblStoDetail, Text: "计费重 — kg", Font: Font{PointSize: 9}},
 							Label{AssignTo: &lblStoRecommend, Text: "", Font: Font{PointSize: 10, Bold: true}, TextColor: walk.RGB(46, 139, 87)},
 							Label{AssignTo: &lblStoNote, Text: "", Font: Font{PointSize: 9}, TextColor: walk.RGB(230, 126, 34)},
@@ -106,7 +106,7 @@ func buildUI() error {
 						Title:  "📦 百世快运",
 						Layout: VBox{Margins: Margins{12, 8, 12, 8}, Spacing: 4},
 						Children: []Widget{
-							Label{AssignTo: &lblBsCost, Text: "¥— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(118, 75, 162)},
+							Label{AssignTo: &lblBsCost, Text: "— (点击复制)", Font: Font{PointSize: 26, Bold: true}, TextColor: walk.RGB(118, 75, 162)},
 							Label{AssignTo: &lblBsDetail, Text: "计费重 — kg", Font: Font{PointSize: 9}},
 							Label{AssignTo: &lblRecommend, Text: "", Font: Font{PointSize: 10, Bold: true}, TextColor: walk.RGB(46, 139, 87)},
 						},

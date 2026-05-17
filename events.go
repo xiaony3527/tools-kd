@@ -52,8 +52,8 @@ func setupEvents() {
 		pendingAnalyze = true
 		// Self-trigger: spawn goroutine that fires after debounce
 		go func(capture string, triggerTime time.Time) {
-			time.Sleep(1500 * time.Millisecond)
-			if time.Since(lastAddrChange) < 1500*time.Millisecond {
+			time.Sleep(300 * time.Millisecond)
+			if time.Since(lastAddrChange) < 300*time.Millisecond {
 				return // newer change arrived, skip
 			}
 			province, city, err := AnalyzeAddress(capture)
@@ -110,8 +110,7 @@ func setupEnterKey(from, to *walk.LineEdit) {
 func makeCopyable(lbl *walk.Label) {
 	lbl.MouseDown().Attach(func(x, y int, button walk.MouseButton) {
 		txt := lbl.Text()
-		txt = strings.TrimPrefix(txt, "¥")
-		txt = strings.TrimSpace(txt)
+	txt = strings.TrimSpace(txt)
 		if txt != "" {
 			walk.Clipboard().SetText(txt)
 		}
@@ -225,11 +224,11 @@ func updatePriceCards() {
 	var costBs float64
 	if totalBs > 0 {
 		costBs = CalcBsCost(totalBs, p)
-		lblBsCost.SetText(fmt.Sprintf("¥%.2f", costBs))
+		lblBsCost.SetText(fmt.Sprintf("%.2f", costBs))
 		lblBsDetail.SetText(fmt.Sprintf("计费重 %.0f kg", totalBs))
 	} else {
 		costBs = p.Base30
-		lblBsCost.SetText(fmt.Sprintf("¥%.2f", costBs))
+		lblBsCost.SetText(fmt.Sprintf("%.2f", costBs))
 		lblBsDetail.SetText("(0kg 基础)")
 	}
 
@@ -242,15 +241,15 @@ func updatePriceCards() {
 		lblStoNote.SetText("")
 	} else if totalSto > 50 {
 		cost, _ := CalcStoCost(totalSto, fk, ak)
-		lblStoCost.SetText(fmt.Sprintf("¥%.2f", cost))
+		lblStoCost.SetText(fmt.Sprintf("%.2f", cost))
 		lblStoDetail.SetText(fmt.Sprintf("计费重 %.0f kg (上限)", totalSto))
 		lblStoNote.SetText("⚠ >50kg 仅发百世")
 	} else if totalSto > 0 {
 		cost, _ := CalcStoCost(totalSto, fk, ak)
-		lblStoCost.SetText(fmt.Sprintf("¥%.2f", cost))
+		lblStoCost.SetText(fmt.Sprintf("%.2f", cost))
 		lblStoDetail.SetText(fmt.Sprintf("计费重 %.0f kg", totalSto))
 	} else {
-		lblStoCost.SetText(fmt.Sprintf("¥%.2f", fk))
+		lblStoCost.SetText(fmt.Sprintf("%.2f", fk))
 		lblStoDetail.SetText("(首重)")
 	}
 
