@@ -21,7 +21,7 @@ func buildUI() error {
 				Children: []Widget{
 					Label{Text: "📦 快递运费报价", Font: Font{PointSize: 13, Bold: true}, TextColor: walk.RGB(255, 255, 255)},
 					HSpacer{},
-					Label{Text: "v2.0", Font: Font{PointSize: 9}, TextColor: walk.RGB(255, 255, 255)},
+					Label{Text: "v2.1", Font: Font{PointSize: 9}, TextColor: walk.RGB(255, 255, 255)},
 				},
 			},
 			// === Zone 1: Address ===
