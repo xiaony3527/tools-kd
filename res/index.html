@@ -515,6 +515,20 @@
       }
     }
 
+    // Clear qty error once input becomes valid
+    var qtyErr;
+    if (isDirectMode) {
+      qtyErr = parseInt($(#volQty).value);
+      if (!isNaN(qtyErr) && qtyErr >= 1) {
+        $(#volQty).removeAttribute("class");
+      }
+    } else {
+      qtyErr = parseInt($(#dimQty).value);
+      if (!isNaN(qtyErr) && qtyErr >= 1) {
+        $(#dimQty).removeAttribute("class");
+      }
+    }
+
     $(#btnAdd).state.disabled = !valid;
   }
 
@@ -564,6 +578,8 @@
       $(#dimQty).value = "1";
       $(#dimLength).state.focus = true;
     }
+    $(#dimQty).removeAttribute("class");
+    $(#volQty).removeAttribute("class");
     updatePreview();
   }
 
