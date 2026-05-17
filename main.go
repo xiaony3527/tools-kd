@@ -92,7 +92,9 @@ func main() {
 	if err != nil {
 		log.Fatal("无法定位资源文件:", err)
 	}
-	w.LoadFile(fullpath)
+	if err := w.LoadFile(fullpath); err != nil {
+		log.Fatal("加载 UI 失败:", err)
+	}
 
 	w.Show()
 	w.Run()
