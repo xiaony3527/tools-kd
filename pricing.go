@@ -1,6 +1,9 @@
 package main
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // PriceEntry 百世快运报价条目
 type PriceEntry struct {
@@ -189,7 +192,7 @@ var provinces = []string{
 	"贵州省", "海南省", "河北省", "河南省", "黑龙江省", "湖北省", "湖南省",
 	"吉林省", "江苏省", "江西省", "辽宁省", "内蒙古", "宁夏",
 	"青海省", "山东省", "山西省", "陕西省", "上海市", "四川省", "天津市",
-	"新疆", "云南省", "浙江省",
+	"新疆", "云南省", "浙江省", "西藏",
 }
 
 // provinceCities 省份→城市列表 (包含"默认"选项)
@@ -268,4 +271,54 @@ func CalcBsCost(weight float64, p PriceEntry) float64 {
 	// >1000kg: 剩余全部
 	cost += remain * p.R1kPlus
 	return cost
+}
+
+// ====== 申通快递报价 ======
+
+// stoPriceMap 省份→{首重, 续重}，按截图7个梯队
+var stoPriceMap = map[string][2]float64{
+	// 梯队1: 浅橙 — 首重3.5 续重0.8
+	"广东": {3.5, 0.8},
+	// 梯队2: 浅蓝 — 首重3.5 续重1.8
+	"浙江": {3.5, 1.8}, "上海": {3.5, 1.8}, "江西": {3.5, 1.8},
+	"江苏": {3.5, 1.8}, "湖南": {3.5, 1.8}, "湖北": {3.5, 1.8},
+	"广西": {3.5, 1.8}, "福建": {3.5, 1.8}, "安徽": {3.5, 1.8},
+	// 梯队3: 浅绿 — 首重4 续重2.5
+	"海南": {4, 2.5}, "天津": {4, 2.5}, "山东": {4, 2.5},
+	"河南": {4, 2.5}, "河北": {4, 2.5}, "北京": {4, 2.5},
+	"重庆": {4, 2.5}, "云南": {4, 2.5}, "四川": {4, 2.5},
+	"陕西": {4, 2.5}, "山西": {4, 2.5}, "贵州": {4, 2.5},
+	// 梯队4: 浅黄 — 首重4 续重3
+	"辽宁": {4, 3}, "吉林": {4, 3}, "黑龙江": {4, 3}, "甘肃": {4, 3},
+	// 梯队5: 浅紫 — 首重5 续重4
+	"青海": {5, 4}, "宁夏": {5, 4}, "内蒙古": {5, 4},
+	// 梯队6: 深橙 — 首重8 续重7
+	"新疆": {8, 7},
+	// 梯队7: 深红 — 首重12 续重10
+	"西藏": {12, 10},
+}
+
+// GetStoPrice 获取申通报价（匹配省份名）
+func GetStoPrice(province string) (firstKg, addKg float64, ok bool) {
+	for k, v := range stoPriceMap {
+		if strings.Contains(province, k) || strings.Contains(k, province) {
+			return v[0], v[1], true
+		}
+	}
+	return 0, 0, false
+}
+
+// CalcStoCost 计费重(kg) → 申通运费(元)，首重+续重
+// 申通仅适用于 ≤50kg
+func CalcStoCost(weight float64, firstKg, addKg float64) (float64, bool) {
+	if weight > 50 {
+		return 0, false // 申通不适用 >50kg
+	}
+	if weight <= 0 {
+		return 0, true
+	}
+	if weight <= 1 {
+		return firstKg, true
+	}
+	return firstKg + (weight-1)*addKg, true
 }

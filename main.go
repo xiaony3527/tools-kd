@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 
 	"github.com/lxn/walk"
@@ -98,10 +99,11 @@ var (
 	cmbCity     *walk.ComboBox
 	lblBsCost   *walk.Label
 
-	inpAddress  *walk.LineEdit
-	btnAnalyze  *walk.PushButton
-	lblDest     *walk.Label
+	inpAddress    *walk.LineEdit
+	btnAnalyze    *walk.PushButton
+	lblDest       *walk.Label
 	lblCostDetail *walk.Label
+	lblStoCost    *walk.Label
 
 	titleBar   *walk.Composite
 	summaryBar *walk.Composite
@@ -267,11 +269,12 @@ func buildUI() error {
 							},
 							// Shipping cost display
 							GroupBox{
-								Title:  "💰 百世运费",
+								Title:  "💰 运费估算",
 								Layout: VBox{Margins: Margins{8, 6, 8, 6}, Spacing: 2},
 								Children: []Widget{
 									Label{AssignTo: &lblDest, Text: "目的地: —", Font: Font{PointSize: 10, Bold: true}},
-									Label{AssignTo: &lblBsCost, Text: "运费: —", Font: Font{PointSize: 12, Bold: true}},
+									Label{AssignTo: &lblStoCost, Text: "申通: —", Font: Font{PointSize: 12, Bold: true}},
+									Label{AssignTo: &lblBsCost, Text: "百世: —", Font: Font{PointSize: 12, Bold: true}},
 									Label{AssignTo: &lblCostDetail, Text: "", Font: Font{PointSize: 9}},
 								},
 							},
@@ -572,7 +575,8 @@ func updateShippingCost() {
 	pi := cmbProvince.CurrentIndex()
 	ci := cmbCity.CurrentIndex()
 	if pi < 0 || ci < 0 || pi >= len(provinces) {
-		lblBsCost.SetText("运费: —")
+		lblBsCost.SetText("百世: —")
+		lblStoCost.SetText("申通: —")
 		lblDest.SetText("目的地: —")
 		lblCostDetail.SetText("")
 		return
@@ -584,19 +588,38 @@ func updateShippingCost() {
 	}
 	city := cities[ci]
 
-	p := GetPriceDefault(province, city)
 	lblDest.SetText(fmt.Sprintf("目的地: %s %s", province, city))
 
-	totalWeight := float64(calcInst.TotalBs())
-	if totalWeight <= 0 {
-		lblBsCost.SetText(fmt.Sprintf("运费: ¥%.2f (0kg基础)", p.Base50))
-		lblCostDetail.SetText("")
-		return
+	// 百世运费 (全重量段)
+	p := GetPriceDefault(province, city)
+	totalBs := float64(calcInst.TotalBs())
+	if totalBs <= 0 {
+		lblBsCost.SetText(fmt.Sprintf("百世: ¥%.2f (0kg基础)", p.Base50))
+	} else {
+		cost := CalcBsCost(totalBs, p)
+		lblBsCost.SetText(fmt.Sprintf("百世: ¥%.2f (%.0fkg)", cost, totalBs))
 	}
-	cost := CalcBsCost(totalWeight, p)
-	lblBsCost.SetText(fmt.Sprintf("运费: ¥%.2f", cost))
-	if totalWeight > 0 {
-		lblCostDetail.SetText(fmt.Sprintf("计费重 %.0f kg ｜ 单价 ≈ ¥%.2f/kg", totalWeight, cost/totalWeight))
+
+	// 申通运费 (≤50kg)
+	totalSto := float64(calcInst.TotalSto())
+	firstKg, addKg, ok := GetStoPrice(province)
+	if !ok {
+		lblStoCost.SetText("申通: 无报价")
+	} else if totalSto > 50 {
+		lblStoCost.SetText(fmt.Sprintf("申通: >50kg，仅发百世"))
+	} else if totalSto <= 0 {
+		lblStoCost.SetText(fmt.Sprintf("申通: ¥%.2f (首重)", firstKg))
+	} else {
+		cost, _ := CalcStoCost(totalSto, firstKg, addKg)
+		lblStoCost.SetText(fmt.Sprintf("申通: ¥%.2f (%.0fkg)", cost, totalSto))
+	}
+
+	// 单行详情
+	tw := math.Max(totalBs, totalSto)
+	if tw > 0 {
+		lblCostDetail.SetText(fmt.Sprintf("计费重 %.0f kg", tw))
+	} else {
+		lblCostDetail.SetText("")
 	}
 }
 
