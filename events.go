@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,8 +12,68 @@ import (
 
 var (
 	lastAddrChange time.Time
-	pendingAnalyze bool
+	// 地址分析去抖：单 goroutine + 无缓冲 channel
+	addrReq = make(chan string, 1)
+	addrAns = make(chan struct {
+		province string
+		city     string
+	}, 1)
 )
+
+func init() {
+	// 单后台 goroutine 处理所有地址解析请求，避免 goroutine 堆积
+	go func() {
+		for addr := range addrReq {
+			time.Sleep(300 * time.Millisecond)
+			if time.Since(lastAddrChange) < 300*time.Millisecond {
+				continue // 被新输入覆盖，忽略
+			}
+			p, c, err := AnalyzeAddress(addr)
+			if err != nil || (p == "" && c == "") {
+				continue
+			}
+			select {
+			case addrAns <- struct {
+				province string
+				city     string
+			}{p, c}:
+			default:
+			}
+		}
+	}()
+	// 另一个 goroutine 消费解析结果，分发给 GUI 线程
+	go func() {
+		for r := range addrAns {
+			applyAddressResult(r.province, r.city)
+		}
+	}()
+}
+
+func applyAddressResult(province, city string) {
+	defer func() { recover() }()
+	for i, p := range provinces {
+		if strings.Contains(p, province) || strings.Contains(province, p) {
+			cmbProvince.SetCurrentIndex(i)
+			cities := GetCities(provinces[i])
+			cmbCity.SetModel(cities)
+			if len(cities) > 0 {
+				cmbCity.SetCurrentIndex(0)
+			}
+			if city != "" {
+				for j, c := range cities {
+					if strings.Contains(c, city) || strings.Contains(city, c) {
+						cmbCity.SetCurrentIndex(j)
+						break
+					}
+				}
+			}
+			lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
+			updatePriceCards()
+			return
+		}
+	}
+	lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
+}
 
 func setupEvents() {
 	// Focus select-all
@@ -42,47 +103,17 @@ func setupEvents() {
 	inpActual.TextChanged().Attach(func() { updateAll() })
 	inpQty.TextChanged().Attach(func() { updateAll() })
 
-	// Address: debounce auto-analyze (1.5s after paste/typing stops)
+	// Address: 单 goroutine 通道去抖解析
 	inpAddress.TextChanged().Attach(func() {
 		lastAddrChange = time.Now()
 		addr := strings.TrimSpace(inpAddress.Text())
 		if len(addr) < 5 {
 			return
 		}
-		pendingAnalyze = true
-		// Self-trigger: spawn goroutine that fires after debounce
-		go func(capture string, triggerTime time.Time) {
-			time.Sleep(300 * time.Millisecond)
-			if time.Since(lastAddrChange) < 300*time.Millisecond {
-				return // newer change arrived, skip
-			}
-			province, city, err := AnalyzeAddress(capture)
-			if err != nil || (province == "" && city == "") {
-				return
-			}
-			// Run GUI update on the GUI-safe goroutine via sync
-			defer func() { recover() }()
-			for i, p := range provinces {
-				if strings.Contains(p, province) || strings.Contains(province, p) {
-					cmbProvince.SetCurrentIndex(i)
-					cities := GetCities(provinces[i])
-					cmbCity.SetModel(cities)
-					if len(cities) > 0 { cmbCity.SetCurrentIndex(0) }
-					if city != "" {
-						for j, c := range cities {
-							if strings.Contains(c, city) || strings.Contains(city, c) {
-								cmbCity.SetCurrentIndex(j)
-								break
-							}
-						}
-					}
-					lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
-					updatePriceCards()
-					return
-				}
-			}
-			lblDest.SetText(fmt.Sprintf("▸ %s %s", province, city))
-		}(addr, lastAddrChange)
+		select {
+		case addrReq <- addr:
+		default:
+		}
 	})
 
 	// Table double-click delete
@@ -117,9 +148,15 @@ func makeCopyable(lbl *walk.Label) {
 	})
 }
 
-// ====== Input parsing — auto-detect mode ======
-func parseFloat(s string) float64 { var f float64; fmt.Sscanf(s, "%f", &f); return f }
-func parseInt(s string) int       { var n int; fmt.Sscanf(s, "%d", &n); return n }
+// ====== Input parsing ======
+func parseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return f
+}
+func parseInt(s string) int {
+	n, _ := strconv.Atoi(strings.TrimSpace(s))
+	return n
+}
 
 func getInputData() (l, w, h, vol, actual float64, qty int, mode InputMode, valid bool) {
 	l = parseFloat(inpLength.Text())
@@ -156,10 +193,6 @@ func getInputData() (l, w, h, vol, actual float64, qty int, mode InputMode, vali
 // ====== Update ======
 func updateAll() {
 	updatePreview()
-	if pendingAnalyze && time.Since(lastAddrChange) > 1500*time.Millisecond {
-		pendingAnalyze = false
-		onAnalyzeAddressSilent()
-	}
 }
 
 func updatePreview() {
