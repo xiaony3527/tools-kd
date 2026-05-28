@@ -407,8 +407,8 @@ export function mountApp(root: HTMLElement): void {
     }
   });
 
-  // --- Add package ---
-  root.querySelector('.btn-add')?.addEventListener('click', async () => {
+  // --- Add package (shared logic) ---
+  const addPackageFromInputs = async () => {
     const dims = root.querySelectorAll<HTMLInputElement>('.input-dim');
     const length = parseFloat(dims[0]?.value || '0');
     const width = parseFloat(dims[1]?.value || '0');
@@ -450,6 +450,23 @@ export function mountApp(root: HTMLElement): void {
     } catch (err) {
       setStatus(root, '⚠️ 连接后端失败，请检查服务状态');
       console.error('Failed to add package:', err);
+    }
+  };
+
+  root.querySelector('.btn-add')?.addEventListener('click', addPackageFromInputs);
+
+  // --- Enter key on package input fields triggers add ---
+  root.querySelectorAll('.input-dim, .input-weight, .input-qty').forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Enter') addPackageFromInputs();
+    });
+  });
+
+  // --- Enter key on address input triggers add (after auto-parse) ---
+  addressInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      if (addressTimer) { clearTimeout(addressTimer); await analyzeAndApply(addressInput?.value ?? ''); }
+      addPackageFromInputs();
     }
   });
 
