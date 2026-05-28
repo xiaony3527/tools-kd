@@ -462,14 +462,6 @@ export function mountApp(root: HTMLElement): void {
     });
   });
 
-  // --- Enter key on address input triggers add (after auto-parse) ---
-  addressInput?.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      if (addressTimer) { clearTimeout(addressTimer); await analyzeAndApply(addressInput?.value ?? ''); }
-      addPackageFromInputs();
-    }
-  });
-
   // --- Clear all packages ---
   root.querySelector('.btn-clear')?.addEventListener('click', async () => {
     try {
