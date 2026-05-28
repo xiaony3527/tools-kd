@@ -318,15 +318,6 @@ body {
   user-select: none;
 }
 
-.btn-analyze {
-  background: rgba(0, 0, 0, 0.2);
-  color: #fff;
-  font-size: 0.8rem;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
 .btn-add {
   background: #4f6ef7;
   color: #fff;

@@ -179,8 +179,7 @@ export function renderShell(): string {
     </div>
     <div class="topbar-center">
       <div class="address-group">
-        <input type="text" class="address-input" placeholder="请输入收件地址，如：北京市朝阳区..." />
-        <button class="btn btn-analyze">AI解析</button>
+        <input type="text" class="address-input" placeholder="请输入收件地址（自动解析），如：北京市朝阳区..." />
       </div>
     </div>
     <div class="topbar-right">
@@ -379,17 +378,6 @@ export function mountApp(root: HTMLElement): void {
   };
   addressInput?.addEventListener('input', updateDebouncedAddress);
   addressInput?.addEventListener('change', updateDebouncedAddress);
-
-  // --- Manual "AI解析" button triggers immediately (no debounce) ---
-  root.querySelector('.btn-analyze')?.addEventListener('click', () => {
-    if (addressTimer) clearTimeout(addressTimer);
-    const rawValue = addressInput?.value ?? '';
-    if (!shouldAnalyzeAddress(rawValue.trim())) {
-      setStatus(root, '⚠️ 请输入完整的地址（至少5个字符）');
-      return;
-    }
-    analyzeAndApply(rawValue);
-  });
 
   // --- Province select change ---
   root.querySelector('.province-select')?.addEventListener('change', async (e) => {
