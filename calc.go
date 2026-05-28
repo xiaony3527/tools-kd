@@ -6,18 +6,18 @@ import "math"
 type InputMode int
 
 const (
-	ModeDimWeight InputMode = iota // 长宽高+实重（默认）
-	ModeWeightOnly                 // 仅实重（无体积参与）
-	ModeVolumeOnly                 // 仅体积（无实重参与）
+	ModeDimWeight  InputMode = iota // 长宽高+实重（默认）
+	ModeWeightOnly                  // 仅实重（无体积参与）
+	ModeVolumeOnly                  // 仅体积（无实重参与）
 )
 
 // Package 表示一个包裹
 type Package struct {
 	ID           int
-	Length       float64 // 长(cm)
-	Width        float64 // 宽(cm)
-	Height       float64 // 高(cm)
-	Volume       float64 // 体积(cm³)
+	Length       float64   // 长(cm)
+	Width        float64   // 宽(cm)
+	Height       float64   // 高(cm)
+	Volume       float64   // 体积(cm³)
 	Quantity     int       // 件数
 	Mode         InputMode // 录入模式
 	ActualWeight float64   // 实际重量(kg)，用户输入
@@ -52,22 +52,32 @@ func BsVolWeight(volume float64) int {
 	return int(math.Ceil(volume / BsCoefficient))
 }
 
-// StoBillable 申通计费重 = Ceil(max(实重, 抛重))
-func StoBillable(volume, actual float64) int {
+// StoBillableRaw 申通计费重（原始值）= max(实重, 体积/系数)
+func StoBillableRaw(volume, actual float64) float64 {
 	vw := volume / StoCoefficient
 	if actual > vw {
-		return int(math.Ceil(actual))
+		return actual
 	}
-	return int(math.Ceil(vw))
+	return vw
 }
 
-// BsBillable 百世计费重 = Ceil(max(实重, 抛重))
-func BsBillable(volume, actual float64) int {
+// BsBillableRaw 百世计费重（原始值）= max(实重, 体积/系数)
+func BsBillableRaw(volume, actual float64) float64 {
 	vw := volume / BsCoefficient
 	if actual > vw {
-		return int(math.Ceil(actual))
+		return actual
 	}
-	return int(math.Ceil(vw))
+	return vw
+}
+
+// StoBillable 申通计费重 = Ceil(max(实重, 抛重))，用于单包裹展示
+func StoBillable(volume, actual float64) int {
+	return int(math.Ceil(StoBillableRaw(volume, actual)))
+}
+
+// BsBillable 百世计费重 = Ceil(max(实重, 抛重))，用于单包裹展示
+func BsBillable(volume, actual float64) int {
+	return int(math.Ceil(BsBillableRaw(volume, actual)))
 }
 
 // CalcVolume 根据长宽高计算体积（长宽高模式）
@@ -130,20 +140,20 @@ func (c *Calc) GetPackages() []Package {
 	return c.packages
 }
 
-// TotalSto 申通计费重汇总
-func (c *Calc) TotalSto() int {
-	total := 0
+// TotalSto 申通计费重汇总（浮点原始值求和）
+func (c *Calc) TotalSto() float64 {
+	var total float64
 	for _, p := range c.packages {
-		total += StoBillable(p.Volume, p.ActualWeight) * p.Quantity
+		total += StoBillableRaw(p.Volume, p.ActualWeight) * float64(p.Quantity)
 	}
 	return total
 }
 
-// TotalBs 百世计费重汇总
-func (c *Calc) TotalBs() int {
-	total := 0
+// TotalBs 百世计费重汇总（浮点原始值求和）
+func (c *Calc) TotalBs() float64 {
+	var total float64
 	for _, p := range c.packages {
-		total += BsBillable(p.Volume, p.ActualWeight) * p.Quantity
+		total += BsBillableRaw(p.Volume, p.ActualWeight) * float64(p.Quantity)
 	}
 	return total
 }

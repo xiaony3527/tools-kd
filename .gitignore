@@ -2,3 +2,7 @@ build/
 .superpowers/
 .opencode/
 docs/
+/tools-kd
+frontend/node_modules/
+.worktrees/
+frontend/dist/

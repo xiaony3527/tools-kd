@@ -1,14 +1,16 @@
-APP_NAME := 快递运费报价
-RSRC := $(shell go env GOPATH)/bin/rsrc
+.PHONY: frontend-install dev build test clean
 
-.PHONY: build clean
+frontend-install:
+	cd frontend && npm install
+
+dev:
+	wails dev
 
 build:
-	mkdir -p build
-	$(RSRC) -manifest app.manifest -o rsrc.syso
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
-	go build -ldflags="-H windowsgui -s -w" -o build/$(APP_NAME).exe .
-	rm -f rsrc.syso
+	wails build
+
+test:
+	go test ./...
 
 clean:
-	rm -rf build rsrc.syso
+	rm -rf build/bin frontend/dist

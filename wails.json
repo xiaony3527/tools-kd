@@ -1,0 +1,11 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "tools-kd",
+  "outputfilename": "快递运费报价",
+  "frontend:dir": "frontend",
+  "frontend:install": "npm ci",
+  "frontend:build": "npm run build",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "frontend/src/wailsjs",
+  "assetdir": "frontend/dist"
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 )
 
@@ -236,6 +237,7 @@ func CalcBsCost(weight float64, p PriceEntry) float64 {
 	if weight <= 0 {
 		return 0
 	}
+	weight = math.Ceil(weight)
 	if weight <= 30 {
 		return p.Base30
 	}
@@ -299,11 +301,12 @@ func GetStoPrice(province string) (firstKg, addKg float64, ok bool) {
 // CalcStoCost 计费重(kg) → 申通运费(元)，首重+续重
 // 申通仅适用于 ≤50kg
 func CalcStoCost(weight float64, firstKg, addKg float64) (float64, bool) {
-	if weight > 50 {
-		return 0, false // 申通不适用 >50kg
-	}
 	if weight <= 0 {
 		return 0, true
+	}
+	weight = math.Ceil(weight)
+	if weight > 50 {
+		return 0, false // 申通不适用 >50kg
 	}
 	if weight <= 1 {
 		return firstKg, true

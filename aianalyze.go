@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // DeepSeek API key from env
@@ -77,7 +78,8 @@ func AnalyzeAddress(address string) (province, city string, err error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+deepseekKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("API请求失败: %w", err)
 	}
