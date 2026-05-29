@@ -19,7 +19,7 @@ import {
   SetDestination,
   AnalyzeAddress,
   GetProvinces,
-} from './api';
+} from './wailsjs/go/main/App';
 
 /**
  * renderSummary — pure function that serialises key state fields.
@@ -201,26 +201,26 @@ export function renderShell(): string {
       <div class="input-row">
         <div class="field">
           <label>长 (cm)</label>
-          <input type="number" class="input-dim" placeholder="长" />
+          <input type="number" class="input-dim" placeholder="长" min="0" onfocus="this.select()" />
         </div>
         <div class="field">
           <label>宽 (cm)</label>
-          <input type="number" class="input-dim" placeholder="宽" />
+          <input type="number" class="input-dim" placeholder="宽" min="0" onfocus="this.select()" />
         </div>
         <div class="field">
           <label>高 (cm)</label>
-          <input type="number" class="input-dim" placeholder="高" />
+          <input type="number" class="input-dim" placeholder="高" min="0" onfocus="this.select()" />
         </div>
       </div>
       <div class="dim-weight-hint">默认体积计算方式：长×宽×高(cm³)，计费重=体积÷系数(申通8000/百世5000)</div>
       <div class="input-row">
         <div class="field">
           <label>实际重量 (kg)</label>
-          <input type="number" step="0.1" class="input-weight" placeholder="重量" />
+          <input type="number" step="0.1" class="input-weight" placeholder="重量" min="0" onfocus="this.select()" />
         </div>
         <div class="field">
           <label>数量</label>
-          <input type="number" class="input-qty" placeholder="1" value="1" />
+          <input type="number" class="input-qty" placeholder="1" value="1" min="0" onfocus="this.select()" />
         </div>
         <div class="field field-btn">
           <button class="btn btn-add">添加</button>

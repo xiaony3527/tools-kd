@@ -27,11 +27,6 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// shutdown is called when the app shuts down.
-func (a *App) shutdown(ctx context.Context) {
-	// Cleanup if needed
-}
-
 // ====== Province/city canonicalization ======
 
 var (

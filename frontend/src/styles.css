@@ -240,14 +240,6 @@ body {
 /* ============================================================
    Package Input Card
    ============================================================ */
-.package-input-card {
-  /* reserved for future styling */
-}
-
-.package-list-card {
-  /* reserved for future styling */
-}
-
 .input-row {
   display: flex;
   gap: 10px;
@@ -466,10 +458,6 @@ body {
   align-items: center;
   font-size: 0.8rem;
   color: #888;
-}
-
-.detail-label {
-  /* reserved for future styling */
 }
 
 .detail-note {
