@@ -147,19 +147,19 @@ function renderFromState(root: HTMLElement, state: main.QuoteState): void {
   const tbody = root.querySelector('.package-table tbody');
   if (tbody) {
     if (!state.packages || state.packages.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">暂无包裹，请点击"添加"录入</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-row">暂无包裹，请点击"添加"录入</td></tr>';
     } else {
       tbody.innerHTML = state.packages.map(p => {
         const dims = (p.length && p.width && p.height)
           ? `${p.length}×${p.width}×${p.height}`
           : '-';
-        const billable = Math.max(p.stoBillable, p.bsBillable);
         return `<tr>
           <td>${p.id}</td>
           <td>${p.modeLabel}</td>
           <td>${dims}</td>
           <td>${p.actualWeight.toFixed(2)}</td>
-          <td>${billable.toFixed(2)}</td>
+          <td>${p.stoBillable.toFixed(2)}</td>
+          <td>${p.bsBillable.toFixed(2)}</td>
           <td>${p.quantity}</td>
           <td><button class="btn-delete" data-id="${p.id}">删除</button></td>
         </tr>`;
@@ -179,15 +179,15 @@ export function renderShell(): string {
     </div>
     <div class="topbar-center">
       <div class="address-group">
-        <input type="text" class="address-input" placeholder="请输入收件地址（自动解析），如：北京市朝阳区..." />
+        <input type="text" class="address-input" placeholder="请输入收件地址（自动解析），如：北京市朝阳区..." tabindex="-1" />
       </div>
     </div>
     <div class="topbar-right">
       <span class="destination-label">目的地：</span>
-      <select class="province-select">
+      <select class="province-select" tabindex="-1">
         <option value="">请选择省份</option>
       </select>
-      <select class="city-select">
+      <select class="city-select" tabindex="-1">
         <option value="">请选择城市</option>
       </select>
     </div>
@@ -245,7 +245,8 @@ export function renderShell(): string {
             <th>模式</th>
             <th>尺寸 (cm)</th>
             <th>实际重量 (kg)</th>
-            <th>计费重量 (kg)</th>
+            <th>申通计费重 (kg)</th>
+            <th>百世计费重 (kg)</th>
             <th>数量</th>
             <th>操作</th>
           </tr>
@@ -447,6 +448,11 @@ export function mountApp(root: HTMLElement): void {
       setStatus(root, '');
       const state = await AddPackage(input);
       renderFromState(root, state);
+      // Auto-clear input fields after successful add
+      dims.forEach(d => { (d as HTMLInputElement).value = ''; });
+      (root.querySelector<HTMLInputElement>('.input-weight') as HTMLInputElement | null)!.value = '';
+      (root.querySelector<HTMLInputElement>('.input-qty') as HTMLInputElement | null)!.value = '1';
+      (dims[0] as HTMLInputElement)?.focus();
     } catch (err) {
       setStatus(root, '⚠️ 连接后端失败，请检查服务状态');
       console.error('Failed to add package:', err);
@@ -531,5 +537,13 @@ export function mountApp(root: HTMLElement): void {
     }).catch(() => {
       setStatus(root, '⚠️ 复制功能不可用');
     });
+  });
+
+  // --- Keyboard shortcut: Ctrl+Shift+X = clear all ---
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'X') {
+      e.preventDefault();
+      root.querySelector<HTMLButtonElement>('.btn-clear')?.click();
+    }
   });
 }
